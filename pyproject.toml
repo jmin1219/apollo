@@ -17,3 +17,11 @@ known_first_party = ["app", "models"]
 line-length = 88
 extend-select = ["E", "F", "I", "C", "B", "RUF"]
 exclude = [".venv", "build", "dist", "__pycache__"]
+
+[project.optional-dependencies]
+dev = [
+    "black==24.10.0",
+    "isort==5.13.0",
+    "ruff==0.14.1",
+    "pre-commit==4.3.0",
+]
