@@ -256,3 +256,32 @@ async def update_task(task_id: str, task: TaskUpdate):
             ) from e
         detail = f"Error updating task: {error_msg}"
         raise HTTPException(status_code=500, detail=detail) from e
+
+
+# Delete task endpoint
+@app.delete("/tasks/{task_id}", status_code=204)
+async def delete_task(task_id: str):
+    """
+    Delete a task by ID
+
+    - **task_id**: UUID of the task
+    """
+    try:
+        response: Any = supabase.table("tasks").delete().eq("id", task_id).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        return  # 204 No Content
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions to be handled by FastAPI
+    except Exception as e:
+        error_msg = str(e)
+        # UUID validation error
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            raise HTTPException(
+                status_code=400, detail="Invalid task_id: must be a valid UUID"
+            ) from e
+        detail = f"Error deleting task: {error_msg}"
+        raise HTTPException(status_code=500, detail=detail) from e
