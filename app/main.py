@@ -3,12 +3,12 @@ from app.models.user import User
 from app.db.supabase_client import supabase
 from fastapi.middleware.cors import CORSMiddleware
 
-# Fast API is needed even though also using Next.js for frontend because while Next.js API routes can run JavaScript/TypeScript, ATLAS's backend logic and integrations are implemented in Python for OpenAI SDK, LandChain, etc. FastAPI provides a robust framework for building APIs, handling requests, and managing data processing that complements the frontend capabilities of Next.js.
+# FastAPI is needed even though also using Next.js for frontend because while Next.js API routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations are implemented in Python for OpenAI SDK, LangChain, etc. FastAPI provides a robust framework for building APIs, handling requests, and managing data processing that complements the frontend capabilities of Next.js.
 
 # 1. APP CREATION - Create Fast API app instance
 app = FastAPI(
-  title="ATLAS",
-  description="Autonomous Tracking & Life Advisory System",
+  title="APOLLO",
+  description="Autonomous Productivity & Optimization Life Logic Orchestrator",
   version="0.1.0"
 )
 
@@ -26,13 +26,13 @@ app.add_middleware(  # - Adds processing that happens for EVERY request
 @app.get("/health")
 async def health_check():
   """Simple health check endpoint to verify the API is running."""
-  return {"status": "healthy", "service": "ATLAS"}
+  return {"status": "healthy", "service": "APOLLO"}
 
 # Root endpoint
 @app.get("/")
 async def root():
   """Welcome message with basic API info."""
-  return {"message": "Welcome to the ATLAS API!", "version": "0.1.0"}
+  return {"message": "Welcome to the APOLLO API!", "version": "0.1.0"}
 
 # User creation endpoint
 @app.post("/users", response_model=User)
