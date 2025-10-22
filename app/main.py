@@ -1,19 +1,28 @@
+from typing import Any, cast
+
 from fastapi import FastAPI, HTTPException
-from app.models.user import User
-from app.db.supabase_client import supabase
 from fastapi.middleware.cors import CORSMiddleware
 
-# FastAPI is needed even though also using Next.js for frontend because while Next.js API routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations are implemented in Python for OpenAI SDK, LangChain, etc. FastAPI provides a robust framework for building APIs, handling requests, and managing data processing that complements the frontend capabilities of Next.js.
+from app.db.supabase_client import supabase
+from app.models.task import Task, TaskUpdate
+from app.models.user import User
 
+# FastAPI is needed even though also using Next.js for frontend. While Next.js API
+# routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations
+# are implemented in Python (OpenAI SDK, LangChain, etc.). FastAPI provides a
+# robust framework for building APIs, handling requests, and managing data
+# processing that complements the frontend capabilities of Next.js.
 # 1. APP CREATION - Create Fast API app instance
 app = FastAPI(
-  title="APOLLO",
-  description="Autonomous Productivity & Optimization Life Logic Orchestrator",
-  version="0.1.0"
+    title="APOLLO",
+    description="Autonomous Productivity & Optimization Life Logic Orchestrator",
+    version="0.1.0",
 )
 
 # 2. MIDDLEWARE - Configure CORS middleware for frontend access
-# Without CORS, browser will block Next.js frontend from accessing FastAPI backend because they run on different origins (domains/ports), eg. localhost:3000 vs localhost:8000
+# Without CORS, the browser will block the Next.js frontend from accessing the
+# FastAPI backend because they run on different origins (domains/ports), e.g.
+# localhost:3000 vs localhost:8000
 app.add_middleware(  # - Adds processing that happens for EVERY request
     CORSMiddleware,
     allow_origins=["*"],  # Adjust this in production for security
@@ -21,68 +30,229 @@ app.add_middleware(  # - Adds processing that happens for EVERY request
     allow_headers=["*"],  # Allow all headers (e.g., Authorization, Content-Type)
 )
 
+
 # 3. ROUTES - Define API endpoints
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-  """Simple health check endpoint to verify the API is running."""
-  return {"status": "healthy", "service": "APOLLO"}
+    """Simple health check endpoint to verify the API is running."""
+    return {"status": "healthy", "service": "APOLLO"}
+
 
 # Root endpoint
 @app.get("/")
 async def root():
-  """Welcome message with basic API info."""
-  return {"message": "Welcome to the APOLLO API!", "version": "0.1.0"}
+    """Welcome message with basic API info."""
+    return {"message": "Welcome to the APOLLO API!", "version": "0.1.0"}
+
 
 # User creation endpoint
 @app.post("/users", response_model=User)
 async def create_user(user: User):
-  """
+    """
     Create a new user
-    
+
     - **email**: User's email address (validated)
-  """
-  try:
-    response = supabase.table("users").insert({
-      "email": user.email
-    }).execute()
+    """
+    try:
+        response: Any = supabase.table("users").insert({"email": user.email}).execute()
 
-    if not response.data:
-      raise HTTPException(status_code=500, detail="Failed to create user")
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create user")
 
-    created_user = response.data[0]
+        created_user: dict = cast(dict, response.data[0])
 
-    return User(**created_user)
+        return User(**created_user)
 
-  except Exception as e:
-    # Handle duplicate email error or other database errors
-    error_message = str(e).lower()
-    if "duplicate key" in error_message or "unique constraint" in error_message:
-      raise HTTPException(status_code=400, detail="Email already exists")
-    # Generic error handling 
-    raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+    except Exception as e:
+        # Handle duplicate email error or other database errors
+        error_message = str(e).lower()
+        if "duplicate key" in error_message or "unique constraint" in error_message:
+            raise HTTPException(status_code=400, detail="Email already exists") from e
+        # Generic error handling
+        detail = f"Error creating user: {e!s}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
 
 # User retrieval endpoint
 @app.get("/users/{user_id}", response_model=User)
 async def get_user(user_id: str):
-  """
+    """
     Get a user by ID
-    
+
     - **user_id**: UUID of the user
-  """
-  try:
-    response = supabase.table("users").select("*").eq("id", user_id).execute()
+    """
+    try:
+        response: Any = supabase.table("users").select("*").eq("id", user_id).execute()
 
-    if not response.data:
-      raise HTTPException(status_code=404, detail="User not found")
+        if not response.data:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    return User(**response.data[0])
+        return User(**cast(dict, response.data[0]))
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions to be handled by FastAPI
+    except Exception as e:
+        detail = f"Error retrieving user: {e!s}"
+        raise HTTPException(status_code=500, detail=detail) from e
 
 
-  except HTTPException:
-    raise  # Re-raise HTTP exceptions to be handled by FastAPI
-  except Exception as e:
-    raise HTTPException(status_code=500, detail=f"Error retrieving user: {str(e)}")
-  
+@app.post("/tasks", status_code=201)
+async def create_task(task: Task):
+    """
+    Create a new task
 
-# 4. STARTUP/SHUTDOWN EVENTS - Define actions on startup/shutdown
+    - **user_id**: UUID of the user who owns the task
+    - **title**: Title of the task
+    - **description**: Detailed description (optional)
+    - **status**: Task status (default: "pending")
+    """
+    try:
+        response: Any = (
+            supabase.table("tasks")
+            .insert(
+                {
+                    "user_id": task.user_id,
+                    "title": task.title,
+                    "description": task.description,
+                    "status": task.status,
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create task")
+
+        created_task: dict = cast(dict, response.data[0])
+        return Task(**created_task)
+
+    except Exception as e:
+        error_msg = str(e)
+
+        # UUID validation error: invalid UUID format
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            raise HTTPException(
+                status_code=400, detail="Invalid user_id: must be a valid UUID"
+            ) from e
+        # Foreign key violation: user_id doesn't exist
+        if (
+            "foreign key constraint" in error_msg.lower()
+            or "violates foreign key" in error_msg.lower()
+        ):
+            raise HTTPException(
+                status_code=400, detail="Invalid user_id: user does not exist"
+            ) from e
+
+        # Any other error is a server error
+        detail = f"Error creating task: {error_msg}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
+
+# Task retrieval by task ID endpoint
+@app.get("/tasks/{task_id}", response_model=Task)
+async def get_task(task_id: str):
+    """
+    Get a task by ID
+
+    - **task_id**: UUID of the task
+    """
+    try:
+        response: Any = supabase.table("tasks").select("*").eq("id", task_id).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        return Task(**cast(dict, response.data[0]))
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions to be handled by FastAPI
+    except Exception as e:
+        error_msg = str(e)
+        # UUID validation error
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            raise HTTPException(
+                status_code=400, detail="Invalid task_id: must be a valid UUID"
+            ) from e
+        detail = f"Error retrieving task: {error_msg}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
+
+# Task list retrieval by user ID or task status endpoint
+@app.get("/tasks", response_model=list[Task])
+async def list_tasks(user_id: str | None = None, status: str | None = None):
+    """
+      List tasks with optional filters
+
+    - **user_id**: Filter by user (optional)
+    - **status**: Filter by status (optional)
+    """
+    try:
+        query = supabase.table("tasks").select("*")
+
+        if user_id:
+            query = query.eq("user_id", user_id)
+        if status:
+            query = query.eq("status", status)
+
+        response: Any = query.execute()
+
+        tasks_data = cast(list[dict], response.data)
+        return [Task(**task) for task in tasks_data]
+
+    except Exception as e:
+        error_msg = str(e)
+        detail = f"Error retrieving tasks: {error_msg}"
+
+        # UUID validation error for user_id filter
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            raise HTTPException(
+                status_code=400, detail="Invalid user_id: must be a valid UUID"
+            ) from e
+
+        raise HTTPException(status_code=500, detail=detail) from e
+
+
+# Task update endpoint
+@app.patch("/tasks/{task_id}", response_model=Task)
+async def update_task(task_id: str, task: TaskUpdate):
+    """
+    Update a task (partial update)
+
+    - **task_id**: UUID of the task
+    - **title**: Updated title (optional)
+    - **description**: Updated description (optional)
+    - **status**: Updated status (optional)
+    """
+    try:
+        update_data = {}
+        if task.title is not None:
+            update_data["title"] = task.title
+        if task.description is not None:
+            update_data["description"] = task.description
+        if task.status is not None:
+            update_data["status"] = task.status
+
+        update_data["updated_at"] = "now()"  # Supabase uses SQL NOW()
+
+        response: Any = (
+            supabase.table("tasks").update(update_data).eq("id", task_id).execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        updated_task: dict = cast(dict, response.data[0])
+        return Task(**updated_task)
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions to be handled by FastAPI
+    except Exception as e:
+        error_msg = str(e)
+        # UUID validation error
+        if "invalid input syntax for type uuid" in error_msg.lower():
+            raise HTTPException(
+                status_code=400, detail="Invalid task_id: must be a valid UUID"
+            ) from e
+        detail = f"Error updating task: {error_msg}"
+        raise HTTPException(status_code=500, detail=detail) from e

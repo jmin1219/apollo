@@ -1,6 +1,8 @@
-from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+
 
 class User(BaseModel):
     id: Optional[str] = None  # UUID from database

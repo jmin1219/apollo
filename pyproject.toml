@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(\.venv|\.git|\.eggs|build|dist|\.mypy_cache|\.pytest_cache|\.venv|\.tox)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+combine_as_imports = true
+known_first_party = ["app", "models"]
+
+[tool.ruff]
+line-length = 88
+extend-select = ["E", "F", "I", "C", "B", "RUF"]
+exclude = [".venv", "build", "dist", "__pycache__"]

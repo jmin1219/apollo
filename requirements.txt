@@ -62,3 +62,8 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
 yarl==1.22.0
+
+black==24.10.0
+isort==5.13.0
+ruff==0.14.1
+pre-commit==4.3.0
