@@ -1,5 +1,7 @@
-# ATLAS Development Learning Log
+# APOLLO Development Learning Log
 
+**Project:** Autonomous Productivity & Optimization Life Logic Orchestrator  
+**Previous Name:** ATLAS (renamed 2025-10-22 due to OpenAI Atlas browser)  
 **Project Start:** 2025-10-20  
 **Timeline:** 12 weeks to Dec 15, 2025  
 **Approach:** 70% manual coding, learning-first
@@ -65,7 +67,7 @@
 
 ## Interview Readiness Checklist
 
-- [ ] Can explain ATLAS architecture in 5 minutes
+- [ ] Can explain APOLLO architecture in 5 minutes
 - [ ] Can whiteboard the multi-agent system
 - [x] Can explain why chose OpenAI Agents SDK (production-ready, Python-native, lightweight)
 - [ ] Can rebuild core features from scratch
@@ -171,7 +173,7 @@
    - Critical for multi-agent systems with concurrent LLM calls
    - Without async: 100 users wait in sequential queue
    - With async: Python switches between waiting requests
-   - Essential for ATLAS (multiple agents, LLM calls, databases)
+   - Essential for APOLLO (multiple agents, LLM calls, databases)
 
 5. **Network Debugging:**
    - `localhost` = hostname (needs DNS resolution)
