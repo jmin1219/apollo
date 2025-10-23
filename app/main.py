@@ -1,11 +1,15 @@
 from typing import Any, cast
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 
+from app.auth.dependencies import get_current_user
+from app.auth.jwt import create_access_token
+from app.auth.password import hash_password, verify_password
 from app.db.supabase_client import supabase
 from app.models.task import Task, TaskUpdate
-from app.models.user import User
+from app.models.user import User, UserCreate, UserPublic
 
 # FastAPI is needed even though also using Next.js for frontend. While Next.js API
 # routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations
@@ -285,3 +289,116 @@ async def delete_task(task_id: str):
             ) from e
         detail = f"Error deleting task: {error_msg}"
         raise HTTPException(status_code=500, detail=detail) from e
+
+# Register user endpoint
+@app.post("/auth/register", response_model=UserPublic, status_code=201)
+async def register_user(user: UserCreate):
+    """
+    Register a new user with email and password
+
+    - **email**: User's email address (validated)
+    - **password**: Plaintext password (will be hashed before storage)
+    """
+    try:
+        # Check if email already exists
+        existing_response: Any = (
+            supabase.table("users").select("*").eq("email", user.email).execute()
+        )
+
+        if existing_response.data:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
+        # Hash the plaintext password
+        hashed_password = hash_password(user.password)
+
+        # Insert new user into the database
+        response: Any = supabase.table("users").insert(
+            {
+                "email": user.email,
+                "hashed_password": hashed_password,
+            }
+        ).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create user")
+
+        created_user: dict = cast(dict, response.data[0])
+
+        return UserPublic(
+            id=created_user["id"],
+            email=created_user["email"],
+            created_at=created_user["created_at"],
+        )
+
+    except Exception as e:
+        # Handle duplicate email error or other database errors
+        error_message = str(e).lower()
+        if "duplicate key" in error_message or "unique constraint" in error_message:
+            raise HTTPException(status_code=400, detail="Email already exists") from e
+        # Generic error handling
+        detail = f"Error creating user: {e!s}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
+# Login user endpoint
+@app.post("/auth/login")
+async def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Login with email and password, returns JWT access token
+
+    OAuth2 standard uses 'username' field, but we accept email there.
+    """
+    try:
+        # Query user by email (OAuth2 uses 'username' field for email)
+        response: Any = (
+            supabase.table("users")
+            .select("*")
+            .eq("email", form_data.username)
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        user_data: dict = cast(dict, response.data[0])
+
+        # verify password
+        if not verify_password(form_data.password, user_data["hashed_password"]):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        # Generate JWT token (implementation omitted for brevity)
+        access_token = create_access_token(data={"sub": user_data["id"]})
+
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions to be handled by FastAPI
+    except Exception as e:
+        detail = f"Error during login: {e!s}"
+        raise HTTPException(status_code=500, detail=detail) from e
+
+# Get Me endpoint
+@app.get("/auth/me", response_model=UserPublic)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """
+    Get the currently authenticated user's info
+
+    Requires a valid JWT token in the Authorization header.
+    """
+
+    # Assert fields exist (they should from database)
+    assert current_user.id is not None
+    assert current_user.created_at is not None
+
+    return UserPublic(
+        id=current_user.id,
+        email=current_user.email,
+        created_at=current_user.created_at,
+    )
