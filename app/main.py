@@ -102,7 +102,10 @@ async def get_user(user_id: str):
 
 
 @app.post("/tasks", status_code=201)
-async def create_task(task: Task):
+async def create_task(
+    task: Task,
+    current_user: User = Depends(get_current_user),
+    ):
     """
     Create a new task
 
@@ -116,7 +119,7 @@ async def create_task(task: Task):
             supabase.table("tasks")
             .insert(
                 {
-                    "user_id": task.user_id,
+                    "user_id": current_user.id,
                     "title": task.title,
                     "description": task.description,
                     "status": task.status,
@@ -155,14 +158,17 @@ async def create_task(task: Task):
 
 # Task retrieval by task ID endpoint
 @app.get("/tasks/{task_id}", response_model=Task)
-async def get_task(task_id: str):
+async def get_task(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+):
     """
-    Get a task by ID
+    Get a task by ID (must belong to current user)
 
     - **task_id**: UUID of the task
     """
     try:
-        response: Any = supabase.table("tasks").select("*").eq("id", task_id).execute()
+        response: Any = supabase.table("tasks").select("*").eq("id", task_id).eq("user_id", current_user.id).execute()
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Task not found")
@@ -184,18 +190,19 @@ async def get_task(task_id: str):
 
 # Task list retrieval by user ID or task status endpoint
 @app.get("/tasks", response_model=list[Task])
-async def list_tasks(user_id: str | None = None, status: str | None = None):
+async def list_tasks(
+    current_user: User = Depends(get_current_user),
+    status: str | None = None
+):
     """
-      List tasks with optional filters
+    List tasks of the current user, optionally filtered by status
 
-    - **user_id**: Filter by user (optional)
+    - **current_user**: Filter by current authenticated user
     - **status**: Filter by status (optional)
     """
     try:
-        query = supabase.table("tasks").select("*")
+        query = supabase.table("tasks").select("*").eq("user_id", current_user.id)
 
-        if user_id:
-            query = query.eq("user_id", user_id)
         if status:
             query = query.eq("status", status)
 
@@ -219,9 +226,13 @@ async def list_tasks(user_id: str | None = None, status: str | None = None):
 
 # Task update endpoint
 @app.patch("/tasks/{task_id}", response_model=Task)
-async def update_task(task_id: str, task: TaskUpdate):
+async def update_task(
+    task_id: str, task: TaskUpdate,
+    current_user: User = Depends(get_current_user)
+):
     """
     Update a task (partial update)
+    Must belong to current user
 
     - **task_id**: UUID of the task
     - **title**: Updated title (optional)
@@ -240,7 +251,7 @@ async def update_task(task_id: str, task: TaskUpdate):
         update_data["updated_at"] = "now()"  # Supabase uses SQL NOW()
 
         response: Any = (
-            supabase.table("tasks").update(update_data).eq("id", task_id).execute()
+            supabase.table("tasks").update(update_data).eq("id", task_id).eq("user_id", current_user.id).execute()
         )
 
         if not response.data:
@@ -264,14 +275,14 @@ async def update_task(task_id: str, task: TaskUpdate):
 
 # Delete task endpoint
 @app.delete("/tasks/{task_id}", status_code=204)
-async def delete_task(task_id: str):
+async def delete_task(task_id: str, current_user: User = Depends(get_current_user)):
     """
-    Delete a task by ID
+    Delete a task by ID (must belong to current user)
 
     - **task_id**: UUID of the task
     """
     try:
-        response: Any = supabase.table("tasks").delete().eq("id", task_id).execute()
+        response: Any = supabase.table("tasks").delete().eq("id", task_id).eq("user_id", current_user.id).execute()
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Task not found")
