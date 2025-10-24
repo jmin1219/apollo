@@ -133,6 +133,21 @@ DELETE /tasks/{id}       # Delete task (protected, ownership check)
 - **Incremental:** Small, tested changes with frequent commits
 - **Documentation:** Dev notes in Obsidian, comments in code
 
+### Teaching Workflow (APOLLO Educator Standard)
+**See `.atlas-dev/teaching-workflow.md` for complete methodology**
+
+When helping Jaymin learn:
+1. Start with WHY (show the problem before the solution)
+2. Ask questions to verify understanding at each step
+3. Use fill-in-the-blanks approach (structure provided, student completes logic)
+4. Give positive-first feedback (what's right, then refinements)
+5. Concrete examples before abstract concepts
+6. Reveal purpose through experiencing pain points first
+7. Teach TypeScript in context (not separately)
+8. Errors are teaching moments (guide through fixing)
+
+This workflow produces "aha moments" and deep understanding.
+
 ## Interview Talking Points
 1. **UUID primary keys:** Prevents ID enumeration attacks, distributed-system ready
 2. **JWT stateless auth:** Scales horizontally, no session storage needed

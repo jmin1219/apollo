@@ -89,3 +89,31 @@ export function Form() {
 
 ## Current Phase
 Building frontend (Module 1.5) - authentication UI and task management interface.
+
+## Teaching Workflow (CRITICAL)
+**When helping Jaymin learn, follow the APOLLO Teaching Workflow:**
+
+See `.atlas-dev/teaching-workflow.md` for complete methodology.
+
+**Key principles:**
+1. **Problem-first, solution-second** - Show why before how
+2. **Ask questions, don't lecture** - Verify understanding at each step
+3. **Fill-in-the-blanks > Complete code** - Let them write, guide don't write
+4. **Positive-first feedback** - What's right, then how to improve
+5. **Concrete examples before abstractions** - Show working code, then explain patterns
+6. **Reveal purpose through pain** - Let them experience the problem before showing the solution
+
+**Example: Instead of giving complete function**
+```typescript
+// ❌ Don't do this:
+export async function apiFetch<T>(endpoint: string) { /* complete code */ }
+
+// ✅ Do this:
+async function apiFetch(endpoint, options) {
+  // TODO: Get JWT token from localStorage
+  const token = ???
+  // TODO: What headers do we need?
+  headers: { ??? }
+}
+// Now YOU fill in the ??? parts. What would you put there?
+```
