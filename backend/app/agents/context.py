@@ -6,26 +6,33 @@ formatting it for LLM consumption, and managing token budgets.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional, TypeAlias, cast
+
+from app.db.supabase_client import supabase
+
+# Type aliases for clarity (using modern lowercase dict)
+TaskDict: TypeAlias = dict[str, Any]
+MessageDict: TypeAlias = dict[str, Any]
+PreferencesDict: TypeAlias = dict[str, Any]
 
 
 @dataclass
 class AgentContext:
     """
     Context provided to AI agents for generating responses.
-    
-    TODO: Think about what data an agent needs to respond intelligently
-    - User identification?
-    - Conversation history?
-    - User's current tasks?
-    - User preferences or settings?
-    - Available tools?
-    
-    Design consideration: Keep this focused. Only include data the agent
-    actually needs, not everything you have available.
+
+    Fields:
+        user_id: Unique identifier for user
+        current_tasks: Active tasks (pending/in_progress), limited to 20
+        user_preferences: User settings (future implementation)
+        recent_messages: Last 10 conversation messages (future implementation)
+        history_summary: Compressed older messages (future implementation)
     """
     user_id: str
-    # TODO: Add more fields as you understand what agents need
+    current_tasks: list[TaskDict] | None = None
+    user_preferences: PreferencesDict | None = None
+    recent_messages: list[MessageDict] | None = None
+    history_summary: str | None = None
 
 
 async def create_agent_context(
@@ -35,42 +42,68 @@ async def create_agent_context(
 ) -> AgentContext:
     """
     Build context for agent to process user message.
-    
-    TODO: Implement context building
-    
-    Steps to think through:
-    1. What user data should we fetch from database?
-       - Current tasks? All of them or just pending?
-       - User preferences or settings?
-       - Conversation history?
-    
-    2. How do we manage token budget?
-       - GPT-4 has 8k token limit
-       - System prompt uses ~200 tokens
-       - How much budget left for user context?
-       - What if user has 100 tasks? (can't fit all)
-    
-    3. How do we format data for the agent?
-       - JSON? Natural language? Structured list?
-       - Trade-off: Token efficiency vs clarity
-    
-    Concepts to research:
-    - Token counting (how to estimate context size)
-    - Context window management (what to include/exclude)
-    - Data prioritization (recent vs relevant)
-    
-    Interview question you should be able to answer:
-    "How do you handle context that exceeds the model's token limit?"
-    
+
+    Phase 1 implementation:
+    - Fetches user's active tasks (pending + in_progress)
+    - Limits to 20 tasks (~800 tokens)
+    - Skips messages/preferences (tables don't exist yet)
+
+    Phase 3 will add:
+    - Conversation messages table
+    - User preferences table
+    - History summarization
+
     Args:
         user_id: ID of user making the request
         message: Current user message
         conversation_id: Optional conversation to load history from
-    
+
     Returns:
         AgentContext with all data agent needs
+
+    Token budget allocation (GPT-4: 8,192 tokens total):
+        - System prompt: ~300 tokens
+        - Tasks (20): ~800 tokens
+        - Messages (future): ~1,500 tokens
+        - History summary (future): ~500 tokens
+        - Current message: ~100 tokens
+        - Total context: ~3,300 tokens
+        - Available for response: ~4,892 tokens
     """
-    # TODO: Implement this function
-    # Hint: Start by just returning a basic context with user_id
-    # Then gradually add more data (tasks, history, etc.)
-    pass
+
+    # Fetch active tasks (pending + in_progress)
+    try:
+        response: Any = (
+            supabase.table("tasks")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["pending", "in_progress"])  # Match either status
+            .order("created_at", desc=True)  # Most recent first
+            .limit(20)  # Token budget constraint
+            .execute()
+        )
+
+        tasks_data: list[TaskDict] = cast(list[TaskDict], response.data)
+
+    except Exception as e:
+        # Graceful degradation: agent works without task context
+        # Logs error for debugging but doesn't crash
+        print(f"Error fetching tasks for user {user_id}: {e}")
+        tasks_data = []
+
+    # Phase 3 TODO: Fetch recent messages
+    # Will require creating conversations and messages tables
+
+    # Phase 3 TODO: Fetch user preferences
+    # Will require creating user_preferences table
+
+    # Phase 3 TODO: Generate history summary
+    # Will require implementing summarization logic
+
+    return AgentContext(
+        user_id=user_id,
+        current_tasks=tasks_data,
+        user_preferences=None,
+        recent_messages=None,
+        history_summary=None
+    )
