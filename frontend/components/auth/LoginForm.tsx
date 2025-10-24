@@ -2,6 +2,7 @@
 
 import { login } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '@radix-ui/react-label';
@@ -68,6 +69,13 @@ export function LoginForm() {
             {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
+
+        <div className="mt-4 text-center text-sm">
+          <span className="text-gray-600">Don&apos;t have an account? </span>
+          <Link href="/register" className="text-blue-600 hover:underline">
+            Sign up
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
