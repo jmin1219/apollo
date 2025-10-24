@@ -33,3 +33,6 @@ export interface AuthResponse {
   access_token: string;
   token_type: string;
 }
+
+// Login Response type definition
+export type LoginResponse = AuthResponse;
