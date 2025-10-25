@@ -2,358 +2,304 @@
 
 **Autonomous Productivity & Optimization Life Logic Orchestrator**
 
-A multi-agent AI system for personal productivity and strategic life planning, built as a portfolio capstone project.
+A production-grade AI agent system for strategic productivity and life planning. Built as a full-stack portfolio capstone demonstrating AI architecture, secure tool execution, and streaming interfaces.
+
+> *Renamed from ATLAS to APOLLO (Oct 2025) to differentiate from OpenAI's Atlas browser*
 
 ---
 
-## Project Overview
+## 🎯 What Makes This Different
 
-APOLLO is a sophisticated productivity system that combines:
-- **AI Agent Architecture** - Natural language task management with strategic coaching
-- **Multi-Horizon Planning** - Connect daily tasks to yearly goals
-- **Secure Tool Calling** - AI agents that can actually do things (CRUD operations)
-- **Real-time Intelligence** - Context-aware recommendations based on your actual work
+Most productivity apps are glorified to-do lists. APOLLO is an **AI system that thinks strategically** about your goals:
 
-**Note:** This project was originally named ATLAS but was renamed to APOLLO on 2025-10-22 to differentiate from OpenAI's Atlas browser product.
-
----
-
-## Tech Stack
-
-**Backend:**
-- FastAPI (Python 3.13) - Async REST API framework
-- Supabase (PostgreSQL) - Database with real-time capabilities
-- Pydantic V2 - Data validation and serialization
-- OpenAI SDK - Chat Completions API with function calling
-- JWT Authentication - OAuth2 with bcrypt password hashing
-
-**Frontend:**
-- Next.js 15 - React framework with App Router
-- TypeScript - Type-safe development
-- Tailwind CSS + shadcn/ui - Modern component library
-
-**AI/ML:**
-- GPT-4 - Strategic reasoning and multi-horizon planning
-- Function Calling - Secure tool execution via natural language
-- Context Management - Token-optimized user data injection
-
----
-
-## Current Status (Module 2.1 - 80% Complete)
-
-**Module 1: Foundation ✅**
-- [x] FastAPI setup with health checks
-- [x] PostgreSQL database via Supabase (users, tasks tables)
-- [x] Task Management CRUD (5 endpoints)
-- [x] JWT Authentication (register, login, protected routes)
-- [x] Frontend auth UI (login, dashboard, logout)
-
-**Module 2: AI Agents (80% Complete) 🚀**
-- [x] OpenAI SDK integration with token counting
-- [x] BaseAgent abstract class (ABC pattern)
-- [x] **LifeCoordinator Agent** - Strategic planning with 3-goal hierarchy
-  - SWE visa-sponsored job (Spring 2027)
-  - Antifragile body (concurrent training)
-  - Personal finance
-- [x] **Function Calling** - Agent can create/update/delete tasks via conversation!
-- [ ] Streaming responses (Phase 5 - next)
-
-**Next:** Streaming & Frontend chat interface
-
----
-
-## Key Features
-
-### 🤖 AI-Powered Task Management
 ```
-You: "Add a task to buy groceries this weekend"
-APOLLO: [creates task in database] "I've added 'Buy groceries this weekend' 
-        to your tasks. Now you have 5 tasks. Remember, completing Module 2.1 
-        Phase 3 will advance your APOLLO milestone toward your Spring 2027 goal."
+You: "What should I focus on today?"
+
+APOLLO: "Based on your current tasks and goals, I recommend:
+
+1. Complete Module 2.1 Phase 3 (~2 hours). This advances your APOLLO 
+   portfolio milestone, which builds toward your Spring 2027 SWE goal.
+
+2. After that, tackle NeetCode: Valid Anagram (~30 min). This reinforces 
+   your CS fundamentals and prepares you for technical interviews.
+
+3. Zone 2 cardio session (30 min). This maintains your concurrent training 
+   goal for an antifragile body.
+
+Remember, completing Module 2.1 Phase 3 is crucial - it's your highest-
+leverage task connecting to your primary goal."
 ```
 
-### 🎯 Strategic Multi-Horizon Thinking
-- Connects daily tasks to quarterly milestones and yearly goals
-- Provides context-aware priority recommendations
-- Balances competing priorities across life domains
-
-### 🔒 Secure Tool Execution
-- Agent requests actions, system validates and executes
-- Ownership verification before update/delete
-- user_id injection (agent can't manipulate other users' data)
-
-### 📊 Real-Time Context Awareness
-- Fetches your actual tasks from database
-- Token-optimized context (20 tasks max, ~800 tokens)
-- Future: Calendar integration, energy tracking
-
----
-
-## Development Philosophy
-
-- **60% Manual Coding** - Interview readiness and deep understanding
-- **40% AI Assistance** - Productivity and best practices
-- **Quality Gates** - Verify learning at each module completion
-- **Test-First** - Comprehensive testing before feature expansion
-- **Security-First** - Validate everything, trust nothing (even the AI)
-
----
-
-## Getting Started
-
-### Prerequisites
-- Python 3.13+
-- Node.js 18+
-- Supabase account (free tier)
-- OpenAI API key
-
-### Backend Setup
-
-```bash
-# Navigate to backend
-cd backend
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-# Create .env with:
-# - SUPABASE_URL
-# - SUPABASE_KEY
-# - SECRET_KEY (for JWT)
-# - OPENAI_API_KEY
-
-# Run database migrations (create tables in Supabase SQL Editor)
-# See: backend/scripts/schema.sql
-
-# Start server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+**Not just advice** - APOLLO can execute:
 ```
-
-### Frontend Setup
-
-```bash
-# Navigate to frontend
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-### Testing Agent Locally
-
-```bash
-cd backend
-python -m app.agents.tests.test_tool_calling
+You: "Add a task to review Module 2.1 notes"
+APOLLO: [creates task in database] "I've added 'Review Module 2.1 notes' 
+        to your list. Given your current schedule, I suggest fitting this 
+        in after your NeetCode session around 7 PM."
 ```
 
 ---
 
-## API Endpoints
+## ✨ Features
 
-### Authentication
-- `POST /auth/register` - Create new user
-- `POST /auth/login` - Login and receive JWT
-- `GET /auth/me` - Get current user (protected)
+### 🤖 AI Agent with Strategic Intelligence
+- **LifeCoordinator Agent** - Multi-horizon planning across day/week/month/year
+- **Goal Hierarchy Thinking** - Tasks → Projects → Milestones → Goals
+- **Context-Aware** - Knows your actual tasks, progress, and constraints
+- **95% Confidence Rule** - Asks clarifying questions when uncertain
 
-### Tasks
-- `POST /tasks` - Create task (protected)
-- `GET /tasks` - List tasks with filters (protected)
-- `GET /tasks/{task_id}` - Get specific task (protected)
-- `PATCH /tasks/{task_id}` - Update task (protected)
-- `DELETE /tasks/{task_id}` - Delete task (protected)
+### ⚡ Secure Function Calling
+- **Natural Language Actions** - Create, update, delete tasks via conversation
+- **Security-First Design** - Agent requests, system validates and executes
+- **Ownership Verification** - user_id injection prevents cross-user access
+- **Field Whitelisting** - Agent can't modify unauthorized fields
 
-### AI Agent (Coming in Phase 5)
-- `POST /chat/message` - Send message to Life Coordinator
-- `POST /chat/stream` - Streaming conversation (SSE)
+### 🌊 Streaming Responses
+- **Server-Sent Events (SSE)** - Word-by-word display like ChatGPT
+- **Hybrid Execution Mode** - Streams conversation, instant actions
+- **Smart Routing** - Keyword detection routes to appropriate mode
+- **Production UX** - Feels responsive and alive
+
+### 🔐 Enterprise-Grade Auth
+- **JWT Authentication** - OAuth2 bearer tokens
+- **bcrypt Password Hashing** - Industry-standard security
+- **Protected Routes** - All task endpoints require authentication
+- **User Isolation** - Can only access your own data
+
+### 📊 Full CRUD Task Management
+- Create, Read, Update, Delete tasks via REST API
+- Status tracking (pending, in_progress, completed)
+- Flexible filtering (by user, by status)
+- Partial updates (PATCH semantics)
 
 ---
 
-## Project Structure
+## 🏗️ Architecture
+
+### Backend (FastAPI + Python)
 
 ```
-apollo-project/
-├── backend/
-│   ├── app/
-│   │   ├── agents/
-│   │   │   ├── base.py              # BaseAgent ABC
-│   │   │   ├── life_coordinator.py  # Strategic planning agent
-│   │   │   ├── context.py           # Context management
-│   │   │   ├── token_utils.py       # Token counting (LRU cached)
-│   │   │   ├── tools/
-│   │   │   │   └── task_tools.py    # CRUD operations with security
-│   │   │   └── tests/               # Agent test suite
-│   │   ├── auth/                    # JWT authentication
-│   │   ├── db/                      # Supabase client
-│   │   ├── models/                  # Pydantic models
-│   │   ├── routes/                  # API endpoints
-│   │   └── main.py                  # FastAPI app
-│   ├── requirements.txt
-│   └── .env
-├── frontend/
-│   ├── app/                         # Next.js 15 App Router
-│   ├── components/                  # React components
-│   ├── lib/                         # API wrappers, auth utilities
-│   └── types/                       # TypeScript definitions
-└── README.md
+backend/app/
+├── agents/                      # AI Agent system
+│   ├── base.py                  # BaseAgent ABC interface
+│   ├── life_coordinator.py      # Strategic planning agent
+│   ├── context.py               # Context management & token budgeting
+│   ├── token_utils.py           # LRU-cached token counting (99% faster)
+│   ├── tools/
+│   │   └── task_tools.py        # CRUD operations with security
+│   └── tests/                   # Agent test suite
+├── auth/                        # JWT authentication
+│   ├── dependencies.py          # OAuth2PasswordBearer, get_current_user
+│   └── jwt.py                   # Token creation/verification
+├── db/                          # Database layer
+│   └── supabase_client.py       # Supabase connection
+├── models/                      # Pydantic data models
+│   ├── user.py                  # User, UserCreate, UserResponse
+│   └── task.py                  # Task, TaskCreate, TaskUpdate
+├── routes/                      # API endpoints
+│   ├── auth.py                  # /auth/* endpoints
+│   ├── tasks.py                 # /tasks/* endpoints
+│   └── chat.py                  # /chat/* endpoints (Phase 5)
+└── main.py                      # FastAPI application
 ```
 
+### Frontend (Next.js 15 + React)
+
+```
+frontend/app/
+├── login/                       # Login page
+├── register/                    # Registration page
+├── dashboard/                   # Protected dashboard
+├── chat/                        # AI chat interface (Phase 5)
+└── layout.tsx                   # Root layout
+
+frontend/lib/
+├── api.ts                       # Type-safe API wrapper
+└── auth.ts                      # Auth utilities (login, logout, getCurrentUser)
+```
+
+### Agent Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  User: "Add task to buy milk"                               │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  LifeCoordinator Agent (GPT-4)                              │
+│  - Analyzes: User wants to create task                      │
+│  - Decides: Should call create_task()                       │
+│  - Returns: Function call request                           │
+│    {"name": "create_task", "arguments": {"title": "..."}}   │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  TaskTools (Secure Execution Layer)                         │
+│  - Validates: user_id from auth (not from agent!)           │
+│  - Checks: Input validation, ownership                      │
+│  - Executes: Actual database INSERT                         │
+│  - Returns: {"id": "...", "title": "Buy milk"}              │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Agent (2nd API Call)                                       │
+│  - Receives: Function execution result                      │
+│  - Generates: "I've added 'Buy milk' to your tasks!         │
+│    You now have 5 pending tasks. Consider prioritizing      │
+│    Module 2.1 as it advances your Spring 2027 goal."        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Insight:** Agent requests actions but doesn't execute them. System maintains control.
+
 ---
 
-## Database Schema
+## 🔒 Security Model
 
-### Users Table
-- `id` (UUID) - Primary key
-- `email` (TEXT) - Unique, validated
-- `hashed_password` (TEXT) - bcrypt hashed
-- `created_at`, `updated_at` (TIMESTAMPTZ)
+### Authentication Flow
+1. User registers → Password hashed with bcrypt → Stored in database
+2. User logs in → Credentials verified → JWT token issued (24h expiry)
+3. Protected requests → JWT validated → User identity extracted
+4. All task operations → Filtered by authenticated user_id
 
-### Tasks Table
-- `id` (UUID) - Primary key
-- `user_id` (UUID) - Foreign key to users (CASCADE on delete)
-- `title` (TEXT) - Task title (3-200 chars)
-- `description` (TEXT) - Optional details
-- `status` (TEXT) - pending | in_progress | completed
-- `created_at`, `updated_at` (TIMESTAMPTZ)
-
-**Indexes:**
-- `user_id` for fast user task lookups
-- `status` for filtering
+### Agent Security
+1. **Agent is untrusted** - Treats AI as external actor
+2. **System validates everything** - Ownership checks, input validation
+3. **user_id injection** - Agent can't specify user_id (we inject from auth)
+4. **Field whitelisting** - Agent can only modify approved fields
+5. **Audit capability** - All tool calls logged (future: audit table)
 
 ---
 
-## Development Roadmap
+## 📈 Performance Optimizations
 
-### ✅ Phase 1: Foundation (Complete)
-- [x] Module 1.1: FastAPI Setup
-- [x] Module 1.2: Database Integration (Supabase)
-- [x] Module 1.3: Task Management CRUD
-- [x] Module 1.4: User Authentication (JWT)
-- [x] Module 1.5: Frontend Auth UI
-
-### 🚧 Phase 2: AI Agents (80% Complete)
-- [x] Module 2.1: AI Agent Foundation
-  - [x] OpenAI SDK integration
-  - [x] BaseAgent architecture (ABC pattern)
-  - [x] LifeCoordinator agent (strategic planning)
-  - [x] Function calling (tool execution)
-  - [ ] Streaming responses (SSE) - In Progress
-
-### 📋 Phase 3: Advanced Features (Planned)
-- [ ] Module 3.1: Goal hierarchy management
-- [ ] Module 3.2: Specialized sub-agents (Task Manager, Scheduler)
-- [ ] Module 3.3: Calendar integration
-- [ ] Module 3.4: Analytics and insights
-
----
-
-## Key Innovations
-
-### 1. Strategic AI Coordination
-Not just task management - the Life Coordinator thinks across time horizons:
-- **Daily:** "Focus on Module 2.1 Phase 3 today"
-- **Weekly:** "This advances your APOLLO milestone"
-- **Quarterly:** "Which builds your portfolio"
-- **Yearly:** "Toward your Spring 2027 SWE job goal"
-
-### 2. Secure Function Calling
-Agent autonomy with system control:
+### Token Counting with LRU Cache
 ```python
-# Agent requests: create_task(title="Buy milk")
-# System injects: user_id from authentication
-# System validates: ownership, input, permissions
-# System executes: actual database operation
-# Agent incorporates: results into natural response
+@lru_cache(maxsize=10)
+def _get_encoding_cached(model: str):
+    # First call: 100ms (loads tokenizer)
+    # Cached calls: 0.1ms (99% faster!)
 ```
 
-### 3. Multi-Goal Balancing
-Helps prioritize across competing goals:
-- SWE visa-sponsored job (Spring 2027 target)
-- Antifragile body (concurrent training)
-- Personal finance
+### Context Window Management
+- **Budget:** GPT-4 has 8,192 token context window
+- **Strategy:** Fetch only 20 most recent tasks (~800 tokens)
+- **Prioritization:** Recent > old, active > completed
+- **Future:** Semantic search for relevant context
+
+### Database Queries
+- **Indexed columns:** user_id, status, created_at
+- **Limit results:** Default 20 tasks (token budget)
+- **Filter at DB:** `.eq("user_id", user_id)` not Python filtering
 
 ---
 
-## Architecture Highlights
+## 🎓 Learning Outcomes
 
-**Agent Security Pattern:**
-- ✅ Agent is untrusted actor (requests actions, doesn't execute)
-- ✅ System validates all tool calls (ownership, permissions)
-- ✅ user_id injection prevents cross-user access
-- ✅ Field whitelisting prevents unauthorized modifications
+This project demonstrates mastery of:
 
-**Performance Optimizations:**
-- ✅ LRU-cached token counting (99% performance improvement)
-- ✅ Token-budgeted context (20 tasks max, ~800 tokens)
-- ✅ Async database operations
-- ✅ Graceful degradation (agent works even if context fails)
+**Backend Development:**
+- RESTful API design (FastAPI)
+- Database modeling (PostgreSQL, foreign keys, indexes)
+- Authentication patterns (JWT, OAuth2, bcrypt)
+- Async programming (Python asyncio)
+- Input validation (Pydantic V2)
 
----
+**AI/ML Engineering:**
+- OpenAI Chat Completions API
+- Function calling (tool definition, execution, security)
+- Context management (token budgeting, data prioritization)
+- System prompt engineering (behavior design)
+- Multi-turn conversations (state management)
 
-## Testing
+**Frontend Development:**
+- Next.js 15 App Router
+- React hooks (useState, useEffect, useRef)
+- TypeScript (generic types, interfaces)
+- API integration (fetch, JWT handling)
+- Component architecture (shadcn/ui)
 
-**Agent Tests:**
-```bash
-cd backend
+**System Design:**
+- Abstract Base Class pattern (polymorphism)
+- Separation of concerns (agents, tools, routes)
+- Security-first architecture (untrusted actors)
+- Performance optimization (caching, token budgeting)
 
-# Test basic agent responses
-python -m app.agents.test_agent
-
-# Test function calling (create/update/delete)
-python -m app.agents.tests.test_tool_calling
-
-# Test deletion with confirmation
-python -m app.agents.tests.test_deletion
-```
-
-**API Tests:**
-```bash
-# Interactive API documentation
-# Visit: http://localhost:8000/docs
-
-# Manual testing with authentication
-# 1. POST /auth/register
-# 2. POST /auth/login (get JWT)
-# 3. Use "Authorize" button in /docs
-# 4. Test protected endpoints
-```
+**Interview-Ready Topics:**
+- "I built a multi-agent AI system with secure function calling"
+- "Implemented LRU caching for 99% performance improvement"
+- "Designed strategic system prompts with goal-hierarchy thinking"
+- "Enforced security in AI systems with validation layers"
 
 ---
 
-## Contributing
+## 🚀 Future Enhancements
 
-This is a personal portfolio project demonstrating:
-- Full-stack development (FastAPI + Next.js)
-- AI agent architecture with OpenAI
-- Secure authentication patterns
-- Production-grade code quality
+### Phase 3 (Planned)
+- **Calendar Integration** - Schedule awareness for planning
+- **Energy Tracking** - Capacity-aware task recommendations
+- **Conversation Memory** - Persistent chat history in database
+- **User Preferences** - Learn and adapt to communication style
 
-Feedback and suggestions welcome via issues!
-
----
-
-## License
-
-MIT License - See LICENSE file for details
-
----
-
-## Author
-
-**Jaymin Chang**
-- MS in Computer Science (Northeastern University - Align Program)
-- Transitioning to Software Engineering
-- Focus: AI Systems, Full-Stack Development, Security
+### Phase 4 (Vision)
+- **Specialized Sub-Agents:**
+  - Task Manager (breakdown and estimation)
+  - Deep Work Analyzer (productivity insights)
+  - Schedule Optimizer (deadline-aware planning)
+- **Agent Coordination** - Multi-agent orchestration
+- **Advanced Context** - Vector database for semantic search
 
 ---
 
-**Built with ☕, 🎯, and strategic thinking in Vancouver, BC**
+## 📝 Development Log
 
-**Last Updated:** October 24, 2025
+### Module 2.1: AI Agent Foundation
+- **Oct 24:** Phases 1-4 complete (7h 41min) - 90% done
+  - Token utils, BaseAgent, Context, Function calling
+- **Oct 25:** Phase 5 in progress - Streaming & Frontend
+- **Status:** 80% complete
+
+See [[Module 2.1 - AI Agent Foundation]] for detailed development notes.
+
+---
+
+## 🤝 Acknowledgments
+
+**Teaching Methodology:**
+- 60/40 manual coding to AI assistance ratio
+- Problem-first learning approach
+- Quality gates at module completion
+- Comprehensive documentation for knowledge retention
+
+**Technologies:**
+- OpenAI for GPT-4 API
+- Supabase for database infrastructure
+- Vercel for (future) deployment
+- shadcn/ui for component library
+
+---
+
+## 📬 Contact
+
+**Jaymin Chang**  
+MS Computer Science Student @ Northeastern University (Align Program)  
+Targeting visa-sponsored SWE roles (Spring 2027)
+
+GitHub: [jmin1219](https://github.com/jmin1219/atlas)  
+Email: chang.jaym@northeastern.edu
+
+---
+
+## 📄 License
+
+MIT License - Feel free to learn from this code!
+
+---
+
+**Status:** Active Development | **Last Updated:** October 25, 2025  
+**Portfolio Project** | **Interview-Ready Demo** | **Production Architecture**
+
+*Built with strategic thinking in Vancouver, BC 🇨🇦*
