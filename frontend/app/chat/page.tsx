@@ -16,6 +16,9 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(true);
+
   // Auth check
   useEffect(() => {
     async function loadUser() {
@@ -32,6 +35,61 @@ export default function ChatPage() {
     loadUser();
   }, []);
 
+  // Load las conversation on mount
+  useEffect(() => {
+    async function loadLastConversation() {
+      if (!user) return;
+
+      try {
+        const token = localStorage.getItem('JWT_AUTH_TOKEN');
+
+        const res = await fetch('http://localhost:8000/conversations?limit=1', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          setIsLoadingConversation(false);
+          return;
+        }
+
+        const conversations = await res.json();
+
+        if (conversations.length > 0) {
+          const lastConversation = conversations[0];
+          setConversationId(lastConversation.id);
+
+          // Fetch messages for this conversation
+          const messagesRes = await fetch(
+            `http://localhost:8000/conversations/${lastConversation.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (messagesRes.ok) {
+            const data = await messagesRes.json();
+            const loadedMessages: Message[] = data.messages.map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            }));
+            setMessages(loadedMessages);
+          }
+        }
+
+        setIsLoadingConversation(false);
+      } catch (error) {
+        console.error('Error loading last conversation:', error);
+        setIsLoadingConversation(false);
+      }
+    }
+
+    loadLastConversation();
+  }, [user]); // Run when user loads
+
   // Auto-scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,16 +99,41 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() || isStreaming) return;
 
+    // Store the input before clearing
+    const userInput = input.trim();
+
     // Add user message to chat
     const userMessage: Message = {
       role: 'user',
-      content: input,
+      content: userInput,
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsStreaming(true);
 
     try {
+      let currentConversationId = conversationId;
+
+      if (!currentConversationId) {
+        // This is the first message, create a new conversation
+        const token = localStorage.getItem('JWT_AUTH_TOKEN');
+        const createRes = await fetch('http://localhost:8000/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ title: null }), // Will auto-generate from first message
+        });
+
+        if (createRes.ok) {
+          const newConversation = await createRes.json();
+          currentConversationId = newConversation.id;
+          setConversationId(currentConversationId);
+        }
+      }
+
+      // Prepare conversation history
       const conversationHistory = messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
@@ -61,7 +144,7 @@ export default function ChatPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('JWT_AUTH_TOKEN')}`,
         },
-        body: JSON.stringify({ message: input, conversation_history: conversationHistory }),
+        body: JSON.stringify({ message: userInput, conversation_history: conversationHistory }),
       });
 
       if (!response.ok || !response.body) {
