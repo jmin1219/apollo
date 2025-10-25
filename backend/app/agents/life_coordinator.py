@@ -1,5 +1,5 @@
 from .base import BaseAgent
-from typing import Dict, Any
+from typing import Dict, Any, Optional, cast
 
 class LifeCoordinator(BaseAgent):
     """
@@ -132,7 +132,8 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
         if tasks:
             parts.append(f"Current Tasks ({len(tasks)} total):")
             for task in tasks[:10]:  # Limit to 10 for token efficiency
-                parts.append(f"  - [{task['status']}] {task['title']}")
+                # Include task ID so agent can reference it for updates/deletes
+                parts.append(f"  - ID: {task['id']} | [{task['status']}] {task['title']}")
             if len(tasks) > 10:
                 parts.append(f"  ... and {len(tasks) - 10} more tasks")
         else:
@@ -147,47 +148,191 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
 
         return "\n".join(parts)
 
+    def _get_function_definitions(self) -> list[dict[str, Any]]:
+        """
+        Define tools available to Life Coordinator agent.
+
+        Function schemas tell the agent:
+        - What functions exist in the system
+        - When to use each function (trigger patterns)
+        - What parameters are required/optional
+        - What each parameter means
+
+        Good descriptions are critical for agent decision-making!
+
+        Returns:
+            List of function definitions in OpenAI format
+
+        Note:
+            These schemas don't execute anything - they're just documentation
+            for the agent. Actual execution happens in _execute_tool_calls().
+        """
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_task",
+                    "description": """Create a new task when user explicitly requests adding, creating, or remembering something they need to do.
+
+Use this when user says things like:
+- "Add X to my task list"
+- "Create a task for X"
+- "Remember to X"
+- "I need to do X, add it"
+- "Put X on my list"
+
+DO NOT use this when:
+- User is asking about existing tasks ("What tasks do I have?")
+- User is planning ("I should probably do X" - suggest they create it, but don't auto-create)
+- User is discussing hypothetically
+
+Always extract the core action/outcome as the title. Be concise but clear.""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Short, clear task title describing what needs to be done. Examples: 'Buy milk', 'Email team about project', 'Review Module 2 notes'. Keep under 50 characters when possible."
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional detailed description with context, deadlines, or notes. Use when user provides additional context beyond the title."
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "in_progress", "completed"],
+                                "description": "Initial task status. Default: 'pending'. Use 'in_progress' only if user explicitly says they're already working on it."
+                            }
+                        },
+                        "required": ["title"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "update_task",
+                    "description": """Update an existing task when user requests changes to a task's title, description, or status.
+
+Use this when user says things like:
+- "Mark X as complete/done/finished"
+- "Change X to in progress"
+- "Update the title of X to Y"
+- "Add more details to X task"
+- "I finished X" (mark complete)
+
+DO NOT use this when:
+- User wants to create a NEW task (use create_task instead)
+- User is asking about task status (just answer, don't modify)
+- Task to update is ambiguous (ask which task first)
+
+You must identify the task_id from the user's context (tasks list). If user says "Mark buy milk as done", find the task with title containing "buy milk" and use its ID.""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "UUID of the task to update. Extract from the user's task context by matching the task they're referring to. If ambiguous, ask user to clarify."
+                            },
+                            "updates": {
+                                "type": "object",
+                                "description": "Fields to update. Only include fields that are changing. Possible keys: 'title', 'description', 'status'.",
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "description": "New task title"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "New or updated description"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["pending", "in_progress", "completed"],
+                                        "description": "New status"
+                                    }
+                                }
+                            }
+                        },
+                        "required": ["task_id", "updates"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "delete_task",
+                    "description": """Delete a task when user explicitly requests removal.
+
+Use this when user says things like:
+- "Delete X task"
+- "Remove X from my list"
+- "I don't need the X task anymore"
+- "Cancel the X task"
+
+DO NOT use this when:
+- User completed a task (use update_task to mark complete instead)
+- User is just complaining ("I hate this task" - don't delete!)
+- Task to delete is ambiguous (ask which task first)
+
+CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "UUID of the task to delete. Extract from user's task context by matching the task they're referring to."
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
+                }
+            }
+        ]
+
     async def generate_response(
         self,
         user_id: str,
         messages: list[dict[str, str]],
-        user_context: dict[str, Any] = None
-    ) -> str:
+        user_context: Optional[dict[str, Any]] = None,
+        task_tools: Any = None  # NEW: TaskTools instance
+    ) -> dict[str, Any]:  # Changed return type!
         """
-        Generate strategic response to user message with goal-aware coordination.
+        Generate strategic response with function calling support.
 
         Process:
             1. Build message array: system prompt + user context + conversation history
-            2. Inject user's current tasks (from user_context) as additional system context
-            3. Call OpenAI Chat Completions API
-            4. Return response connecting current query to goal hierarchy
+            2. Call OpenAI with available tools
+            3. If agent wants to call functions:
+                a. Execute the function calls
+                b. Send results back to agent
+                c. Get final response
+            4. Return response + tool call metadata
 
         Args:
             user_id: Authenticated user ID (for security, ensures context isolation)
             messages: Conversation history in OpenAI format
-                [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-            user_context: Optional dict containing:
-                - "tasks": List of user's current tasks (from context_builder)
-                - "stats": Task completion metrics (total, pending, completed)
-                - Future: goal progress, milestone status, deadline tracking
+            user_context: Optional dict containing tasks and stats
+            task_tools: Optional TaskTools instance for function execution
 
         Returns:
-            str: Agent's response (default: 2 paragraphs, strategically connected to goals)
+            Dict containing:
+                - "response": Agent's final text response
+                - "tool_calls": List of tools called (empty if none)
 
-        API Configuration:
-            - Model: GPT-4 (configurable via self.model)
-            - Temperature: 0.7 (balanced between consistent and creative)
-            - Max tokens: 500 (cost control, reasonable response length)
-
-        Example flow:
-            User: "What should I work on today?"
-            Agent analyzes: 15 pending tasks, Module 2.1 blocks APOLLO milestone
-            Agent responds: "I recommend focusing on APOLLO Module 2.1 today. It's
-                currently blocking your portfolio milestone, which is critical for
-                Spring 2027 SWE goal. The module involves [specific work]. Your next
-                most important item would be..."
+        Example return:
+            {
+                "response": "I've added 'Buy milk' to your tasks!",
+                "tool_calls": [
+                    {
+                        "tool": "create_task",
+                        "status": "success",
+                        "result": {"id": "abc-123", "title": "Buy milk"}
+                    }
+                ]
+            }
         """
-        # 1. Build messages array
+        # 1. Build messages array (same as before)
         full_messages = [
             {"role": "system", "content": self.system_prompt}
         ]
@@ -203,12 +348,229 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
         # 3. Append conversation history
         full_messages.extend(messages)
 
-        # 4. Call OpenAI Chat Completions API
-        response = await self.client.chat.completions.create(
+        # 4. Call OpenAI with tools (if available)
+        # NEW: Add tools parameter
+        api_params = {
+            "model": self.model,
+            "messages": full_messages,
+            "temperature": 0.7,
+            "max_tokens": 500
+        }
+
+        # Only add tools if task_tools provided
+        if task_tools:
+            api_params["tools"] = self._get_function_definitions()
+            api_params["tool_choice"] = "auto"  # Agent decides if/when to call
+
+        response = await self.client.chat.completions.create(**api_params)
+
+        message = response.choices[0].message
+
+        # 5. Check if agent wants to call functions
+        if message.tool_calls:
+            # Agent requested function calls!
+            # Execute them and get final response
+            tool_results = await self._execute_tool_calls(
+                message.tool_calls,
+                user_id,
+                task_tools
+            )
+
+            # Get final response incorporating tool results
+            final_response = await self._get_final_response(
+                full_messages,
+                message,
+                tool_results
+            )
+
+            return {
+                "response": final_response,
+                "tool_calls": tool_results
+            }
+
+        # No tool calls needed - return regular response
+        return {
+            "response": message.content,
+            "tool_calls": []
+        }
+
+    async def _execute_tool_calls(
+        self,
+        tool_calls: list,
+        user_id: str,
+        task_tools: Any
+    ) -> list[dict[str, Any]]:
+        """
+        Execute agent's requested tool calls.
+
+        CRITICAL: We control execution, not the agent!
+
+        Flow:
+            1. Agent says: "I want to call create_task(...)"
+            2. We parse the request
+            3. We validate parameters
+            4. We execute with authenticated user_id
+            5. We return result to agent
+
+        Args:
+            tool_calls: List of tool call requests from agent
+            user_id: Authenticated user (WE provide this, not agent!)
+            task_tools: TaskTools instance
+
+        Returns:
+            List of tool call results:
+            [
+                {
+                    "tool": "create_task",
+                    "status": "success" | "error",
+                    "result": {...} | None,
+                    "error": str | None
+                }
+            ]
+        """
+        import json
+
+        results = []
+
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_args = json.loads(tool_call.function.arguments)
+
+            try:
+                # Route to appropriate tool function
+                if function_name == "create_task":
+                    result = await task_tools.create_task(
+                        user_id=user_id,  # WE inject user_id (security!)
+                        **function_args    # Agent provides title/description/status
+                    )
+                    results.append({
+                        "tool": function_name,
+                        "status": "success",
+                        "result": result,
+                        "error": None
+                    })
+
+                elif function_name == "update_task":
+                    result = await task_tools.update_task(
+                        user_id=user_id,  # WE inject user_id (security!)
+                        **function_args    # Agent provides task_id/updates
+                    )
+                    results.append({
+                        "tool": function_name,
+                        "status": "success",
+                        "result": result,
+                        "error": None
+                    })
+
+                elif function_name == "delete_task":
+                    result = await task_tools.delete_task(
+                        user_id=user_id,  # WE inject user_id (security!)
+                        **function_args    # Agent provides task_id
+                    )
+                    results.append({
+                        "tool": function_name,
+                        "status": "success",
+                        "result": {"deleted": True},
+                        "error": None
+                    })
+
+                else:
+                    # Unknown function - shouldn't happen, but handle it
+                    results.append({
+                        "tool": function_name,
+                        "status": "error",
+                        "result": None,
+                        "error": f"Unknown function: {function_name}"
+                    })
+
+            except ValueError as e:
+                # Validation error (bad input, task not found, etc.)
+                results.append({
+                    "tool": function_name,
+                    "status": "error",
+                    "result": None,
+                    "error": str(e)
+                })
+
+            except Exception as e:
+                # Database or unexpected error
+                results.append({
+                    "tool": function_name,
+                    "status": "error",
+                    "result": None,
+                    "error": f"Unexpected error: {str(e)}"
+                })
+
+        return results
+
+    async def _get_final_response(
+        self,
+        original_messages: list[dict[str, str]],
+        agent_message: Any,
+        tool_results: list[dict[str, Any]]
+    ) -> str:
+        """
+        Get agent's final response after tool execution.
+
+        Multi-turn flow:
+            Turn 1: User message → Agent decides to call function
+            Turn 2: Function results → Agent incorporates into response
+
+        Args:
+            original_messages: Original message array (system + context + history)
+            agent_message: Agent's message with tool calls
+            tool_results: Results from executing tool calls
+
+        Returns:
+            Agent's final text response to user
+        """
+        import json
+
+        # Build messages for second API call
+        messages = original_messages.copy()
+
+        # Add agent's tool call message (cast to Any to satisfy client typing)
+        messages.append(cast(Any, {
+            "role": "assistant",
+            "content": agent_message.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                    }
+                }
+                for tc in agent_message.tool_calls
+            ]
+        }))
+
+        # Add tool results
+        for i, tool_result in enumerate(tool_results):
+            tool_call = agent_message.tool_calls[i]
+
+            # Format result for agent
+            if tool_result["status"] == "success":
+                content = json.dumps(tool_result["result"])
+            else:
+                content = json.dumps({"error": tool_result["error"]})
+
+            messages.append(cast(Any, {
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": tool_result["tool"],
+                "content": content
+            }))
+
+        # Get final response from agent (cast messages to Any to satisfy client typing)
+        final_response = await self.client.chat.completions.create(
             model=self.model,
-            messages=full_messages,
+            messages=cast(Any, messages),
             temperature=0.7,
             max_tokens=500
         )
 
-        return response.choices[0].message.content
+        # Ensure we return a string (SDK may return None for content)
+        return final_response.choices[0].message.content or ""
+
