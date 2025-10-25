@@ -13,7 +13,7 @@ backend_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from app.agents.life_coordinator import LifeCoordinator
-from app.agents.context import create_agent_context, agent_context_to_dict 
+from app.agents.context import create_agent_context, agent_context_to_dict
 
 async def test_agent():
     # Load API key from backend/.env
@@ -32,8 +32,10 @@ async def test_agent():
     print(f"   Model: {agent.model}")
     print(f"   System prompt length: {len(agent.system_prompt)} chars\n")
 
-    # Your actual user_id from Supabase
-    user_id = "80107cd3-82b9-4c36-9981-00418f9b63f8"
+    # Get your actual user_id from database
+    # TODO: Replace with your real user_id
+    # You can find it by logging into your app or checking Supabase
+    user_id = "80107cd3-82b9-4c36-9981-00418f9b63f8"  # ← Replace this!
 
     # Test 1: Simple query without context
     print("=" * 60)
@@ -72,20 +74,12 @@ async def test_agent():
     # Convert to format LifeCoordinator expects
     user_context = agent_context_to_dict(agent_context)
 
-    task_count = len(user_context['tasks'])
-    pending_count = user_context['stats']['pending_tasks']
-
-    print(f"✅ Fetched {task_count} active tasks ({pending_count} pending)")
-
-    if task_count > 0:
-        print("📋 Your actual tasks from database:")
-        for task in user_context['tasks']:  # Show all tasks
-            print(f"   - [{task['status']}] {task['title']}")
-    else:
-        print("⚠️  No tasks found in database for this user")
-        print("   Make sure tasks exist in Supabase for user_id:", user_id)
-
-    print()
+    print(f"✅ Fetched {len(user_context['tasks'])} tasks")
+    print("📋 Your actual tasks:")
+    for task in user_context['tasks'][:5]:  # Show first 5
+        print(f"   - [{task['status']}] {task['title']}")
+    if len(user_context['tasks']) > 5:
+        print(f"   ... and {len(user_context['tasks']) - 5} more\n")
 
     messages = [
         {"role": "user", "content": "I have 2 hours today. What's the highest priority?"}

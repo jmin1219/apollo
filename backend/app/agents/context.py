@@ -107,3 +107,34 @@ async def create_agent_context(
         recent_messages=None,
         history_summary=None
     )
+
+def agent_context_to_dict(context: AgentContext) -> dict[str, Any]:
+    """
+    Convert AgentContext dataclass to dictionary for easier serialization.
+
+    Args:
+        context: AgentContext instance from create_agent_context
+
+    Returns:
+        Dictionary representation of AgentContext with 'tasks' and 'stats' keys for agent consumption
+        {
+            "tasks": [...],  # List of task dicts
+            "stats": {
+                "total_tasks": int,
+                "pending_tasks": int
+            }
+        }
+
+    Note:
+        Stats are approximated from current_tasks. In future, will query database
+        for accurate total counts across all tasks statuses.
+    """
+    tasks = context.current_tasks if context.current_tasks else []
+
+    return {
+        "tasks": tasks,
+        "stats": {
+            "total_tasks": len(tasks),
+            "pending_tasks": sum(1 for task in tasks if task.get("status") == "pending"),
+        }
+    }
