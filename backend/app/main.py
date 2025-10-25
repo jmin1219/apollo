@@ -10,7 +10,7 @@ from app.auth.password import hash_password, verify_password
 from app.db.supabase_client import supabase
 from app.models.task import Task, TaskUpdate
 from app.models.user import User, UserCreate, UserPublic
-from app.routes import chat
+from app.routes import chat, conversations
 
 # FastAPI is needed even though also using Next.js for frontend. While Next.js API
 # routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations
@@ -37,6 +37,7 @@ app.add_middleware(  # - Adds processing that happens for EVERY request
 
 # Router registration
 app.include_router(chat.router)
+app.include_router(conversations.router)
 
 # 3. ROUTES - Define API endpoints
 # Health check endpoint
