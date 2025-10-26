@@ -190,6 +190,39 @@ export default function ChatPage() {
         }
       }
 
+      // After streaming is done, save message to database
+      if (currentConversationId) {
+        const token = localStorage.getItem('JWT_AUTH_TOKEN');
+
+        // Save user message
+        await fetch(`http://localhost:8000/conversations/${currentConversationId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            role: 'user',
+            content: userInput,
+          }),
+        });
+
+        // Save assistant message
+        await fetch(`http://localhost:8000/conversations/${currentConversationId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: assistantContent,
+          }),
+        });
+      }
+
       setIsStreaming(false);
     } catch (error) {
       console.error('Chat error:', error);
@@ -208,15 +241,28 @@ export default function ChatPage() {
     return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   }
 
+  function handleNewConversation() {
+    setConversationId(null);
+    setMessages([]);
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold">APOLLO Chat</h1>
-          <a href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Dashboard
-          </a>
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={handleNewConversation}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              + New Chat
+            </button>
+            <a href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
+              ← Dashboard
+            </a>
+          </div>
         </div>
       </div>
 
