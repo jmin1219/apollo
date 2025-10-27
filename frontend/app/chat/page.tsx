@@ -9,6 +9,11 @@ interface Message {
   content: string;
 }
 
+interface MessageResponse {
+  role: string;
+  content: string;
+}
+
 export default function ChatPage() {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,7 +77,7 @@ export default function ChatPage() {
 
           if (messagesRes.ok) {
             const data = await messagesRes.json();
-            const loadedMessages: Message[] = data.messages.map((msg) => ({
+            const loadedMessages: Message[] = data.messages.map((msg: MessageResponse) => ({
               role: msg.role,
               content: msg.content,
             }));
