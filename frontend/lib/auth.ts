@@ -22,13 +22,15 @@ export function isAuthenticated(): boolean {
 
 // Login function
 export async function login(credentials: LoginRequest) {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  
   // 1. Create form data
   const formData = new URLSearchParams();
   formData.append('username', credentials.username);
   formData.append('password', credentials.password);
 
   // 2. Make the POST request to the login endpoint
-  const response = await fetch('http://localhost:8000/auth/login', {
+  const response = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
