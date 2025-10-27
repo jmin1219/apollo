@@ -15,6 +15,7 @@ interface MessageResponse {
 }
 
 export default function ChatPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -48,7 +49,7 @@ export default function ChatPage() {
       try {
         const token = localStorage.getItem('JWT_AUTH_TOKEN');
 
-        const res = await fetch('http://localhost:8000/conversations?limit=1', {
+        const res = await fetch(`${API_BASE}/conversations?limit=1`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -67,7 +68,7 @@ export default function ChatPage() {
 
           // Fetch messages for this conversation
           const messagesRes = await fetch(
-            `http://localhost:8000/conversations/${lastConversation.id}`,
+            `${API_BASE}/conversations/${lastConversation.id}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -122,7 +123,7 @@ export default function ChatPage() {
       if (!currentConversationId) {
         // This is the first message, create a new conversation
         const token = localStorage.getItem('JWT_AUTH_TOKEN');
-        const createRes = await fetch('http://localhost:8000/conversations', {
+        const createRes = await fetch(`${API_BASE}/conversations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -143,7 +144,7 @@ export default function ChatPage() {
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const response = await fetch('http://localhost:8000/chat/stream', {
+      const response = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +201,7 @@ export default function ChatPage() {
         const token = localStorage.getItem('JWT_AUTH_TOKEN');
 
         // Save user message
-        await fetch(`http://localhost:8000/conversations/${currentConversationId}/messages`, {
+        await fetch(`${API_BASE}/conversations/${currentConversationId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -214,7 +215,7 @@ export default function ChatPage() {
         });
 
         // Save assistant message
-        await fetch(`http://localhost:8000/conversations/${currentConversationId}/messages`, {
+        await fetch(`${API_BASE}/conversations/${currentConversationId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
