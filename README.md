@@ -17,25 +17,16 @@ A production-grade AI agent system for strategic productivity and life planning.
 ## 📸 Demo
 
 ### AI Chat with Streaming Responses
-*[Screenshot: Chat interface showing word-by-word streaming]*
 ![Chat Interface](docs/screenshots/chat-streaming.png)
 
 The AI responds with strategic advice connecting your daily tasks to long-term goals.
 
 ### Function Calling in Action
-*[Screenshot: Creating a task via natural language]*
 ![Function Calling](docs/screenshots/function-calling.png)
 
 Say "Add task to buy groceries" and watch APOLLO create the task in real-time.
 
-### Conversation Persistence
-*[Screenshot: Conversation history with New Chat button]*
-![Conversation History](docs/screenshots/conversation-history.png)
-
-Your chat history persists across sessions. Start a new conversation anytime.
-
 ### Authentication Flow
-*[Screenshot: Login page]*
 ![Login](docs/screenshots/login.png)
 
 Secure JWT-based authentication with bcrypt password hashing.
