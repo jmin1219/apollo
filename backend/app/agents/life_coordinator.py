@@ -66,41 +66,34 @@ class LifeCoordinator(BaseAgent):
 
 Your role: You serve as the central coordinator helping users plan, execute, and adjust across multiple time horizons. You're a mentor, advisor, and accountability partner who thinks in systems, connects dots between goals and daily actions, and helps users make informed trade-offs.
 
-User's goal hierarchy (you help coordinate across these levels):
-- Goals (yearly vision, measurable targets, deadlines):
-  • SWE visa-sponsored job by Spring 2027
-  • Antifragile body through concurrent training
-  • Personal finance target
-- Milestones (quarterly checkpoints under goals):
-  • APOLLO portfolio project
-  • CS courses (5001/5002)
-  • Networking targets (connections, coffee chats, referrals)
-  • Training block completions
-  • Finance system milestones
-- Projects (month-long efforts): APOLLO modules, NeetCode problem sets, academic projects
-- Tasks (daily/weekly actions): What you currently manage
-- Habits (ongoing routines): Meditation, transaction logging, training consistency
+Goal hierarchy framework (you help users coordinate across these levels):
+- Goals: Yearly vision-level objectives with measurable targets and deadlines
+- Milestones: Quarterly checkpoints that advance toward goals
+- Projects: Month-long efforts containing related tasks
+- Tasks: Daily/weekly actions (what you currently manage)
+- Habits: Ongoing routines that support goals
 
-Current capabilities: Task-level analysis and strategic advice connecting tasks to higher-level goals
-Future capabilities: Goal hierarchy management, intelligent scheduling, deadline tracking, adaptive prioritization, user pattern learning
+The user's specific goals, milestones, and tasks are provided in the context below. Use this actual data to give personalized strategic advice.
 
 Your coordination approach:
-- Multi-horizon thinking: Connect today's tasks to weekly projects, milestone progress, and yearly goals
+- Multi-horizon thinking: Connect today's tasks to milestones and yearly goals
 - Strategic connection: "This task advances X milestone toward Y goal"
-- Balance and prioritization: Help user make informed trade-offs between competing goals
-- Data-driven: Reference actual tasks, patterns, and progress metrics
+- Balance and prioritization: Help user make informed trade-offs between competing priorities
+- Data-driven: Reference actual tasks, milestones, goals, and progress metrics
 - Dynamic adjustment: When priorities shift or capacity changes, help rebalance
 - Concise: Default to 2 paragraphs max; expand only when asked for details
 
 Guidelines for interaction:
 - Start by understanding context - ask clarifying questions until 95% confident you can help effectively
 - Be specific enough to be actionable:
-  • "Focus on APOLLO Module 2.1" (specific milestone work)
-  • "30-min Zone 2 cardio session" (specific training protocol)
-  • "Review pending tasks and prioritize 3 for tomorrow" (general planning action)
-- Be proactive: Analyze what you see and make recommendations ("15 pending tasks, but Module 2.1 blocks Spring 2027 goal progress - let's prioritize that")
-- Think hierarchically: Always connect down to higher purpose
-  • "Completing Module 2.1 → advances APOLLO milestone → builds portfolio → moves toward Spring 2027 SWE goal"
+  • "Focus on [specific task]" connecting it to its milestone and goal
+  • "30-min [specific activity]" with clear purpose
+  • "Prioritize [task] because it blocks [milestone progress]"
+- Be proactive: Analyze what you see and make recommendations
+  • "I see 15 pending tasks, but [task X] directly blocks your [milestone] - prioritize that"
+- Think hierarchically: Always connect tasks up to their purpose
+  • "Completing [task] → advances [milestone] → moves toward [goal]"
+- When user creates tasks, look for opportunities to link them to milestones and set appropriate priority
 
 Handle edge cases:
 - Unrelated to productivity → Politely redirect to productivity focus
@@ -114,37 +107,59 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
 
     def _format_user_context(self, user_context: Dict[str, Any]) -> str:
         """
-        Format user context (tasks, stats) into readable text for agent.
+        Format user context (goals, milestones, tasks) into readable text for agent.
 
         Args:
-            user_context: Dict containing tasks and stats from context_builder
+            user_context: Dict containing goals, milestones, tasks and stats
 
         Returns:
-            str: Formatted context string for system message
+            str: Formatted hierarchy context for system message
         """
         if not user_context:
             return "No user context available."
 
         parts = []
 
+        # Format goals (yearly objectives)
+        goals = user_context.get("goals", [])
+        if goals:
+            parts.append(f"Goals ({len(goals)} active):")
+            for goal in goals:
+                target = goal.get('target_date', 'No deadline')
+                parts.append(f"  - ID: {goal['id']} | {goal['title']} (Target: {target})")
+        
+        # Format milestones (quarterly checkpoints)
+        milestones = user_context.get("milestones", [])
+        if milestones:
+            parts.append(f"\nMilestones ({len(milestones)} active):")
+            for milestone in milestones:
+                progress = milestone.get('progress', 0)
+                goal_id = milestone.get('goal_id', 'No goal')
+                parts.append(f"  - ID: {milestone['id']} | [{milestone['status']}] {milestone['title']} ({progress}% complete)")
+                if goal_id != 'No goal':
+                    parts.append(f"    → Links to Goal: {goal_id}")
+
         # Format tasks
         tasks = user_context.get("tasks", [])
         if tasks:
-            parts.append(f"Current Tasks ({len(tasks)} total):")
+            parts.append(f"\nCurrent Tasks ({len(tasks)} total):")
             for task in tasks[:10]:  # Limit to 10 for token efficiency
-                # Include task ID so agent can reference it for updates/deletes
-                parts.append(f"  - ID: {task['id']} | [{task['status']}] {task['title']}")
+                milestone_info = f" → Milestone: {task['milestone_id']}" if task.get('milestone_id') else ""
+                project_info = f" [Project: {task['project']}]" if task.get('project') else ""
+                priority = task.get('priority', 'medium').upper() if task.get('priority') == 'high' else ''
+                parts.append(f"  - ID: {task['id']} | [{task['status']}] {priority} {task['title']}{project_info}{milestone_info}")
             if len(tasks) > 10:
                 parts.append(f"  ... and {len(tasks) - 10} more tasks")
         else:
-            parts.append("Current Tasks: None")
+            parts.append("\nCurrent Tasks: None")
 
         # Format stats
         stats = user_context.get("stats", {})
         if stats:
-            parts.append(f"\nTask Statistics:")
-            parts.append(f"  - Total: {stats.get('total_tasks', 0)}")
-            parts.append(f"  - Pending: {stats.get('pending_tasks', 0)}")
+            parts.append(f"\nSummary:")
+            parts.append(f"  - {stats.get('total_goals', 0)} active goals")
+            parts.append(f"  - {stats.get('active_milestones', 0)} active milestones")
+            parts.append(f"  - {stats.get('total_tasks', 0)} tasks ({stats.get('pending_tasks', 0)} pending)")
 
         return "\n".join(parts)
 
@@ -202,6 +217,19 @@ Always extract the core action/outcome as the title. Be concise but clear.""",
                                 "type": "string",
                                 "enum": ["pending", "in_progress", "completed"],
                                 "description": "Initial task status. Default: 'pending'. Use 'in_progress' only if user explicitly says they're already working on it."
+                            },
+                            "milestone_id": {
+                                "type": "string",
+                                "description": "Optional UUID of the milestone this task belongs to. Look in the user's context for milestone IDs. Use this to connect tasks to larger goals. Example: If user says 'Add task for APOLLO', find the APOLLO milestone ID and link it."
+                            },
+                            "project": {
+                                "type": "string",
+                                "description": "Optional project name for grouping related tasks. Examples: 'APOLLO', 'NeetCode', 'CS5001 Homework'. Use when task is clearly part of a project."
+                            },
+                            "priority": {
+                                "type": "string",
+                                "enum": ["high", "medium", "low"],
+                                "description": "Task priority. Default: 'medium'. Use 'high' for urgent/important tasks, 'low' for optional/future tasks."
                             }
                         },
                         "required": ["title"]
@@ -236,7 +264,7 @@ You must identify the task_id from the user's context (tasks list). If user says
                             },
                             "updates": {
                                 "type": "object",
-                                "description": "Fields to update. Only include fields that are changing. Possible keys: 'title', 'description', 'status'.",
+                                "description": "Fields to update. Only include fields that are changing. Possible keys: 'title', 'description', 'status', 'milestone_id', 'project', 'priority'.",
                                 "properties": {
                                     "title": {
                                         "type": "string",
@@ -250,6 +278,19 @@ You must identify the task_id from the user's context (tasks list). If user says
                                         "type": "string",
                                         "enum": ["pending", "in_progress", "completed"],
                                         "description": "New status"
+                                    },
+                                    "milestone_id": {
+                                        "type": "string",
+                                        "description": "Link task to a milestone by its UUID"
+                                    },
+                                    "project": {
+                                        "type": "string",
+                                        "description": "Update project grouping"
+                                    },
+                                    "priority": {
+                                        "type": "string",
+                                        "enum": ["high", "medium", "low"],
+                                        "description": "Update task priority"
                                     }
                                 }
                             }

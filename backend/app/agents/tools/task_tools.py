@@ -42,7 +42,10 @@ class TaskTools:
         user_id: str,  # From authentication, NOT from agent!
         title: str,
         description: Optional[str] = None,
-        status: str = "pending"
+        status: str = "pending",
+        milestone_id: Optional[str] = None,
+        project: Optional[str] = None,
+        priority: str = "medium"
     ) -> dict[str, Any]:
         """
         Create new task for authenticated user.
@@ -73,13 +76,21 @@ class TaskTools:
         if status not in valid_statuses:
             raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
 
+        # Validate priority
+        valid_priorities = ["high", "medium", "low"]
+        if priority not in valid_priorities:
+            raise ValueError(f"Priority must be one of: {', '.join(valid_priorities)}")
+
         # Create Task in database
         try:
             response = self.supabase.table("tasks").insert({
                 "user_id": user_id,
                 "title": title.strip(),
                 "description": description.strip() if description else None,
-                "status": status
+                "status": status,
+                "milestone_id": milestone_id,
+                "project": project,
+                "priority": priority
             }).execute()  # type: ignore
 
             if not response.data:  # type: ignore
@@ -130,7 +141,7 @@ class TaskTools:
             raise ValueError("Task not found or access denied") from e
 
         # Validate updates
-        allowed_fields = ["title", "description", "status"]
+        allowed_fields = ["title", "description", "status", "milestone_id", "project", "priority"]
         validated_updates = {}
 
         for key, value in updates.items():
@@ -155,6 +166,18 @@ class TaskTools:
 
             elif key == "description":
                 validated_updates[key] = value.strip() if value else None
+
+            elif key == "milestone_id":
+                validated_updates[key] = value  # UUID, no stripping needed
+
+            elif key == "project":
+                validated_updates[key] = value.strip() if value else None
+
+            elif key == "priority":
+                valid_priorities = ["high", "medium", "low"]
+                if value not in valid_priorities:
+                    raise ValueError(f"Priority must be one of: {', '.join(valid_priorities)}")
+                validated_updates[key] = value
 
         # Perform update
         try:

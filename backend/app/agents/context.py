@@ -24,12 +24,16 @@ class AgentContext:
     Fields:
         user_id: Unique identifier for user
         current_tasks: Active tasks (pending/in_progress), limited to 20
+        goals: User's active goals (yearly objectives)
+        milestones: Active milestones (quarterly checkpoints)
         user_preferences: User settings (future implementation)
         recent_messages: Last 10 conversation messages (future implementation)
         history_summary: Compressed older messages (future implementation)
     """
     user_id: str
     current_tasks: list[TaskDict] | None = None
+    goals: list[TaskDict] | None = None
+    milestones: list[TaskDict] | None = None
     user_preferences: PreferencesDict | None = None
     recent_messages: list[MessageDict] | None = None
     history_summary: str | None = None
@@ -71,6 +75,38 @@ async def create_agent_context(
         - Available for response: ~4,892 tokens
     """
 
+    # Fetch active goals
+    try:
+        goals_response: Any = (
+            supabase.table("goals")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .order("target_date", desc=False)
+            .limit(10)  # Token budget
+            .execute()
+        )
+        goals_data: list[TaskDict] = cast(list[TaskDict], goals_response.data)
+    except Exception as e:
+        print(f"Error fetching goals for user {user_id}: {e}")
+        goals_data = []
+
+    # Fetch active milestones
+    try:
+        milestones_response: Any = (
+            supabase.table("milestones")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["not_started", "in_progress"])  # Active milestones
+            .order("target_date", desc=False)
+            .limit(20)  # Token budget
+            .execute()
+        )
+        milestones_data: list[TaskDict] = cast(list[TaskDict], milestones_response.data)
+    except Exception as e:
+        print(f"Error fetching milestones for user {user_id}: {e}")
+        milestones_data = []
+
     # Fetch active tasks (pending + in_progress)
     try:
         response: Any = (
@@ -103,6 +139,8 @@ async def create_agent_context(
     return AgentContext(
         user_id=user_id,
         current_tasks=tasks_data,
+        goals=goals_data,
+        milestones=milestones_data,
         user_preferences=None,
         recent_messages=None,
         history_summary=None
@@ -116,25 +154,26 @@ def agent_context_to_dict(context: AgentContext) -> dict[str, Any]:
         context: AgentContext instance from create_agent_context
 
     Returns:
-        Dictionary representation of AgentContext with 'tasks' and 'stats' keys for agent consumption
+        Dictionary with tasks, goals, milestones, and stats:
         {
-            "tasks": [...],  # List of task dicts
-            "stats": {
-                "total_tasks": int,
-                "pending_tasks": int
-            }
+            "tasks": [...],
+            "goals": [...],
+            "milestones": [...],
+            "stats": {...}
         }
-
-    Note:
-        Stats are approximated from current_tasks. In future, will query database
-        for accurate total counts across all tasks statuses.
     """
     tasks = context.current_tasks if context.current_tasks else []
+    goals = context.goals if context.goals else []
+    milestones = context.milestones if context.milestones else []
 
     return {
         "tasks": tasks,
+        "goals": goals,
+        "milestones": milestones,
         "stats": {
             "total_tasks": len(tasks),
             "pending_tasks": sum(1 for task in tasks if task.get("status") == "pending"),
+            "total_goals": len(goals),
+            "active_milestones": len(milestones),
         }
     }

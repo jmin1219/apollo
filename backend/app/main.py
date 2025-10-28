@@ -10,7 +10,7 @@ from app.auth.password import hash_password, verify_password
 from app.db.supabase_client import supabase
 from app.models.task import Task, TaskUpdate
 from app.models.user import User, UserCreate, UserPublic
-from app.routes import chat, conversations
+from app.routes import chat, conversations, goals, milestones
 
 # FastAPI is needed even though also using Next.js for frontend. While Next.js API
 # routes can run JavaScript/TypeScript, APOLLO's backend logic and integrations
@@ -38,6 +38,8 @@ app.add_middleware(  # - Adds processing that happens for EVERY request
 # Router registration
 app.include_router(chat.router)
 app.include_router(conversations.router)
+app.include_router(goals.router)
+app.include_router(milestones.router)
 
 # 3. ROUTES - Define API endpoints
 # Health check endpoint
@@ -127,6 +129,9 @@ async def create_task(
                     "title": task.title,
                     "description": task.description,
                     "status": task.status,
+                    "milestone_id": task.milestone_id,
+                    "project": task.project,
+                    "priority": task.priority,
                 }
             )
             .execute()
@@ -251,6 +256,12 @@ async def update_task(
             update_data["description"] = task.description
         if task.status is not None:
             update_data["status"] = task.status
+        if task.milestone_id is not None:
+            update_data["milestone_id"] = task.milestone_id
+        if task.project is not None:
+            update_data["project"] = task.project
+        if task.priority is not None:
+            update_data["priority"] = task.priority
 
         update_data["updated_at"] = "now()"  # Supabase uses SQL NOW()
 
