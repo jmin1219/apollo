@@ -6,6 +6,40 @@ A production-grade AI agent system for strategic productivity and life planning.
 
 > *Renamed from ATLAS to APOLLO (Oct 2025) to differentiate from OpenAI's Atlas browser*
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Deployed-success?style=for-the-badge)](https://apollo-frontend.vercel.app)
+[![Backend](https://img.shields.io/badge/Backend-Render-blue?style=for-the-badge)](https://apollo-backend.onrender.com)
+[![Status](https://img.shields.io/badge/Status-Production-green?style=for-the-badge)]()
+
+**🚀 Live at:** [apollo-frontend.vercel.app](https://apollo-frontend.vercel.app)
+
+---
+
+## 📸 Demo
+
+### AI Chat with Streaming Responses
+*[Screenshot: Chat interface showing word-by-word streaming]*
+![Chat Interface](docs/screenshots/chat-streaming.png)
+
+The AI responds with strategic advice connecting your daily tasks to long-term goals.
+
+### Function Calling in Action
+*[Screenshot: Creating a task via natural language]*
+![Function Calling](docs/screenshots/function-calling.png)
+
+Say "Add task to buy groceries" and watch APOLLO create the task in real-time.
+
+### Conversation Persistence
+*[Screenshot: Conversation history with New Chat button]*
+![Conversation History](docs/screenshots/conversation-history.png)
+
+Your chat history persists across sessions. Start a new conversation anytime.
+
+### Authentication Flow
+*[Screenshot: Login page]*
+![Login](docs/screenshots/login.png)
+
+Secure JWT-based authentication with bcrypt password hashing.
+
 ---
 
 ## 🎯 What Makes This Different
@@ -60,6 +94,12 @@ APOLLO: [creates task in database] "I've added 'Review Module 2.1 notes'
 - **Smart Routing** - Keyword detection routes to appropriate mode
 - **Production UX** - Feels responsive and alive
 
+### 💾 Conversation Persistence
+- **Auto-Save Chat History** - All conversations stored in database
+- **Auto-Load Last Conversation** - Seamless continuation across sessions
+- **New Chat Functionality** - Start fresh conversations anytime
+- **Message Pagination** - Efficient loading of long conversations
+
 ### 🔐 Enterprise-Grade Auth
 - **JWT Authentication** - OAuth2 bearer tokens
 - **bcrypt Password Hashing** - Industry-standard security
@@ -74,9 +114,126 @@ APOLLO: [creates task in database] "I've added 'Review Module 2.1 notes'
 
 ---
 
+## 🛠️ Tech Stack
+
+### Backend
+![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688?logo=fastapi)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue?logo=postgresql)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-412991?logo=openai)
+
+- **FastAPI** - Modern async Python web framework
+- **Supabase** - Hosted PostgreSQL with auto-generated REST API
+- **OpenAI** - GPT-4 for AI agent intelligence
+- **Pydantic** - Data validation with type hints
+- **python-jose** - JWT implementation
+- **bcrypt** - Password hashing
+
+### Frontend
+![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
+![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css)
+
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **shadcn/ui** - Component library (Radix UI + Tailwind)
+- **Tailwind CSS** - Utility-first styling
+
+### Infrastructure
+![Render](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render)
+![Vercel](https://img.shields.io/badge/Frontend-Vercel-black?logo=vercel)
+
+- **Render** - Backend deployment (FastAPI)
+- **Vercel** - Frontend deployment (Next.js)
+- **Supabase** - Database hosting
+
+---
+
 ## 🏗️ Architecture
 
-### Backend (FastAPI + Python)
+### System Overview
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                         FRONTEND (Vercel)                         │
+│  Next.js 15 + React + TypeScript + Tailwind + shadcn/ui         │
+│                                                                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │   Login     │  │  Dashboard  │  │    Chat     │             │
+│  │   /login    │  │  /dashboard │  │   /chat     │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│          │                │                 │                    │
+│          └────────────────┴─────────────────┘                    │
+│                          │                                        │
+│                    JWT Bearer Token                              │
+│                          │                                        │
+└──────────────────────────┼────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      BACKEND (Render)                             │
+│                  FastAPI + Python 3.13                           │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  API Routes                                                 │ │
+│  │  • /auth/* (register, login, me)                           │ │
+│  │  • /tasks/* (CRUD operations)                              │ │
+│  │  • /chat (streaming SSE)                                   │ │
+│  │  • /conversations/* (history, persistence)                 │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│           │                                    │                  │
+│           ▼                                    ▼                  │
+│  ┌─────────────────────┐           ┌────────────────────────┐   │
+│  │   AI Agent System   │           │  Authentication Layer  │   │
+│  │                     │           │                        │   │
+│  │  LifeCoordinator    │           │  • JWT validation      │   │
+│  │  • Strategic advice │           │  • Password hashing    │   │
+│  │  • Function calling │           │  • User context        │   │
+│  │  • Context mgmt     │           │                        │   │
+│  └─────────────────────┘           └────────────────────────┘   │
+│           │                                                       │
+│           ▼                                                       │
+│  ┌─────────────────────┐                                        │
+│  │    Task Tools       │                                        │
+│  │  • create_task()    │                                        │
+│  │  • update_task()    │                                        │
+│  │  • delete_task()    │                                        │
+│  │  • Ownership checks │                                        │
+│  └─────────────────────┘                                        │
+└──────────────────────────┼────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    DATABASE (Supabase)                            │
+│                      PostgreSQL                                   │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
+│  │    users     │  │    tasks     │  │   conversations     │   │
+│  │  • id (UUID) │  │  • id (UUID) │  │   • id (UUID)       │   │
+│  │  • email     │  │  • user_id   │  │   • user_id         │   │
+│  │  • password  │  │  • title     │  │   • title           │   │
+│  │  • created   │  │  • status    │  │   • created_at      │   │
+│  └──────────────┘  └──────────────┘  └─────────────────────┘   │
+│                                              │                    │
+│                                              ▼                    │
+│                                    ┌─────────────────────┐       │
+│                                    │     messages        │       │
+│                                    │  • id (UUID)        │       │
+│                                    │  • conversation_id  │       │
+│                                    │  • role (user/ai)   │       │
+│                                    │  • content          │       │
+│                                    └─────────────────────┘       │
+└──────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      OpenAI API                                   │
+│                      GPT-4 Model                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Backend Structure
 
 ```
 backend/app/
@@ -85,37 +242,42 @@ backend/app/
 │   ├── life_coordinator.py      # Strategic planning agent
 │   ├── context.py               # Context management & token budgeting
 │   ├── token_utils.py           # LRU-cached token counting (99% faster)
-│   ├── tools/
-│   │   └── task_tools.py        # CRUD operations with security
-│   └── tests/                   # Agent test suite
+│   └── tools/
+│       └── task_tools.py        # CRUD operations with security
 ├── auth/                        # JWT authentication
 │   ├── dependencies.py          # OAuth2PasswordBearer, get_current_user
 │   └── jwt.py                   # Token creation/verification
 ├── db/                          # Database layer
 │   └── supabase_client.py       # Supabase connection
 ├── models/                      # Pydantic data models
-│   ├── user.py                  # User, UserCreate, UserResponse
-│   └── task.py                  # Task, TaskCreate, TaskUpdate
+│   ├── user.py                  # User models
+│   ├── task.py                  # Task models
+│   ├── conversation.py          # Conversation models
+│   └── message.py               # Message models
 ├── routes/                      # API endpoints
 │   ├── auth.py                  # /auth/* endpoints
 │   ├── tasks.py                 # /tasks/* endpoints
-│   └── chat.py                  # /chat/* endpoints (Phase 5)
+│   ├── chat.py                  # /chat endpoint (streaming)
+│   └── conversations.py         # /conversations/* endpoints
 └── main.py                      # FastAPI application
 ```
 
-### Frontend (Next.js 15 + React)
+### Frontend Structure
 
 ```
-frontend/app/
-├── login/                       # Login page
-├── register/                    # Registration page
-├── dashboard/                   # Protected dashboard
-├── chat/                        # AI chat interface (Phase 5)
-└── layout.tsx                   # Root layout
-
-frontend/lib/
-├── api.ts                       # Type-safe API wrapper
-└── auth.ts                      # Auth utilities (login, logout, getCurrentUser)
+frontend/
+├── app/
+│   ├── login/                   # Login page
+│   ├── register/                # Registration page  
+│   ├── dashboard/               # Protected dashboard
+│   ├── chat/                    # AI chat interface
+│   └── layout.tsx               # Root layout
+├── components/
+│   ├── ui/                      # shadcn/ui components
+│   └── LoginForm.tsx            # Auth components
+└── lib/
+    ├── api.ts                   # Type-safe API wrapper
+    └── auth.ts                  # Auth utilities
 ```
 
 ### Agent Architecture
@@ -170,7 +332,7 @@ frontend/lib/
 2. **System validates everything** - Ownership checks, input validation
 3. **user_id injection** - Agent can't specify user_id (we inject from auth)
 4. **Field whitelisting** - Agent can only modify approved fields
-5. **Audit capability** - All tool calls logged (future: audit table)
+5. **Audit capability** - All tool calls logged for review
 
 ---
 
@@ -191,9 +353,111 @@ def _get_encoding_cached(model: str):
 - **Future:** Semantic search for relevant context
 
 ### Database Queries
-- **Indexed columns:** user_id, status, created_at
+- **Indexed columns:** user_id, status, created_at, conversation_id
 - **Limit results:** Default 20 tasks (token budget)
 - **Filter at DB:** `.eq("user_id", user_id)` not Python filtering
+- **CASCADE deletes:** Automatic cleanup of related records
+
+---
+
+## 🚀 Deployment
+
+### Live Instances
+
+**Frontend:** [apollo-frontend.vercel.app](https://apollo-frontend.vercel.app) (Vercel)  
+**Backend:** [apollo-backend.onrender.com](https://apollo-backend.onrender.com) (Render)  
+**Database:** Supabase (PostgreSQL)
+
+### Environment Variables
+
+**Backend (.env)**
+```bash
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+JWT_SECRET_KEY=your_jwt_secret
+OPENAI_API_KEY=your_openai_key
+```
+
+**Frontend (.env.local)**
+```bash
+NEXT_PUBLIC_API_URL=https://apollo-backend.onrender.com
+```
+
+### Deployment Commands
+
+**Backend (Render)**
+```bash
+# Build command
+pip install -r requirements.txt
+
+# Start command
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+**Frontend (Vercel)**
+```bash
+# Build command
+npm run build
+
+# Auto-detected by Vercel
+```
+
+---
+
+## 💻 Local Development Setup
+
+### Prerequisites
+- Python 3.13+
+- Node.js 18+
+- Supabase account
+- OpenAI API key
+
+### Backend Setup
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file (see Environment Variables above)
+cp .env.example .env
+
+# Run development server
+uvicorn app.main:app --reload --port 8000
+```
+
+Backend runs at: http://localhost:8000  
+API docs at: http://localhost:8000/docs
+
+### Frontend Setup
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Create .env.local file
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
+# Run development server
+npm run dev
+```
+
+Frontend runs at: http://localhost:3000
+
+### Database Setup
+
+1. Create Supabase project at [supabase.com](https://supabase.com)
+2. Run SQL from `backend/sql/schema.sql` in Supabase SQL Editor
+3. Copy connection details to `.env`
 
 ---
 
@@ -203,7 +467,7 @@ This project demonstrates mastery of:
 
 **Backend Development:**
 - RESTful API design (FastAPI)
-- Database modeling (PostgreSQL, foreign keys, indexes)
+- Database modeling (PostgreSQL, foreign keys, indexes, CASCADE)
 - Authentication patterns (JWT, OAuth2, bcrypt)
 - Async programming (Python asyncio)
 - Input validation (Pydantic V2)
@@ -214,12 +478,13 @@ This project demonstrates mastery of:
 - Context management (token budgeting, data prioritization)
 - System prompt engineering (behavior design)
 - Multi-turn conversations (state management)
+- Streaming responses (SSE)
 
 **Frontend Development:**
 - Next.js 15 App Router
 - React hooks (useState, useEffect, useRef)
 - TypeScript (generic types, interfaces)
-- API integration (fetch, JWT handling)
+- API integration (fetch, JWT handling, streaming)
 - Component architecture (shadcn/ui)
 
 **System Design:**
@@ -228,41 +493,56 @@ This project demonstrates mastery of:
 - Security-first architecture (untrusted actors)
 - Performance optimization (caching, token budgeting)
 
+**DevOps:**
+- Production deployment (Render + Vercel)
+- Environment variable management
+- CORS configuration
+- Database migrations
+
 **Interview-Ready Topics:**
 - "I built a multi-agent AI system with secure function calling"
 - "Implemented LRU caching for 99% performance improvement"
 - "Designed strategic system prompts with goal-hierarchy thinking"
 - "Enforced security in AI systems with validation layers"
+- "Deployed full-stack app to production with CI/CD"
 
 ---
 
-## 🚀 Future Enhancements
+## 📊 Project Metrics
 
-### Phase 3 (Planned)
+**Development Time:** 5 days (Oct 22-27, 2025)  
+**Total Lines of Code:** ~3,500+  
+**Technologies Used:** 15+  
+**API Endpoints:** 12  
+**Database Tables:** 4 (users, tasks, conversations, messages)
+
+**Modules Completed:**
+- ✅ Module 1.1: FastAPI Setup
+- ✅ Module 1.2: Database Integration  
+- ✅ Module 1.3: Task Management CRUD
+- ✅ Module 1.4: Authentication
+- ✅ Module 1.5: Frontend Development
+- ✅ Module 2.1: AI Agent Foundation
+- ✅ Module 2.2: Conversation Persistence
+
+---
+
+## 🚧 Future Enhancements
+
+### Phase 3: Enhanced Context (Planned)
 - **Calendar Integration** - Schedule awareness for planning
 - **Energy Tracking** - Capacity-aware task recommendations
-- **Conversation Memory** - Persistent chat history in database
 - **User Preferences** - Learn and adapt to communication style
+- **Goal Management** - Full CRUD for goals and milestones
 
-### Phase 4 (Vision)
+### Phase 4: Multi-Agent System (Vision)
 - **Specialized Sub-Agents:**
   - Task Manager (breakdown and estimation)
   - Deep Work Analyzer (productivity insights)
   - Schedule Optimizer (deadline-aware planning)
 - **Agent Coordination** - Multi-agent orchestration
 - **Advanced Context** - Vector database for semantic search
-
----
-
-## 📝 Development Log
-
-### Module 2.1: AI Agent Foundation
-- **Oct 24:** Phases 1-4 complete (7h 41min) - 90% done
-  - Token utils, BaseAgent, Context, Function calling
-- **Oct 25:** Phase 5 in progress - Streaming & Frontend
-- **Status:** 80% complete
-
-See [[Module 2.1 - AI Agent Foundation]] for detailed development notes.
+- **Mobile App** - React Native companion
 
 ---
 
@@ -277,7 +557,8 @@ See [[Module 2.1 - AI Agent Foundation]] for detailed development notes.
 **Technologies:**
 - OpenAI for GPT-4 API
 - Supabase for database infrastructure
-- Vercel for (future) deployment
+- Vercel for frontend deployment
+- Render for backend deployment
 - shadcn/ui for component library
 
 ---
@@ -288,8 +569,10 @@ See [[Module 2.1 - AI Agent Foundation]] for detailed development notes.
 MS Computer Science Student @ Northeastern University (Align Program)  
 Targeting visa-sponsored SWE roles (Spring 2027)
 
-GitHub: [jmin1219](https://github.com/jmin1219/atlas)  
-Email: chang.jaym@northeastern.edu
+**Portfolio:** [portfolio.jayminchang.com](https://portfolio.jayminchang.com) *(coming soon)*  
+**GitHub:** [github.com/jmin1219](https://github.com/jmin1219)  
+**Email:** chang.jaym@northeastern.edu  
+**LinkedIn:** [linkedin.com/in/jaymin-chang](https://linkedin.com/in/jaymin-chang)
 
 ---
 
@@ -299,7 +582,7 @@ MIT License - Feel free to learn from this code!
 
 ---
 
-**Status:** Active Development | **Last Updated:** October 25, 2025  
-**Portfolio Project** | **Interview-Ready Demo** | **Production Architecture**
+**Status:** ✅ Production-Ready | **Last Updated:** October 27, 2025  
+**Portfolio Project** | **Interview-Ready Demo** | **Production Deployment**
 
 *Built with strategic thinking in Vancouver, BC 🇨🇦*
