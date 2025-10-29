@@ -10,7 +10,7 @@ A production-grade AI agent system for strategic productivity and life planning.
 [![Backend](https://img.shields.io/badge/Backend-Render-blue?style=for-the-badge)](https://apollo-backend.onrender.com)
 [![Status](https://img.shields.io/badge/Status-Production-green?style=for-the-badge)]()
 
-**🚀 Live at:** [apollo-frontend.vercel.app](https://apollo-frontend.vercel.app)
+**🚀 Live at:** https://apollo-chi-plum.vercel.app/
 
 ---
 
