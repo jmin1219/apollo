@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/auth";
 
-// TODO: Define Timeline types
 type Horizon = "today" | "week" | "month" | "year";
 
 type TimelineItem = {
@@ -17,11 +16,21 @@ type TimelineItem = {
   due_date?: string;
   priority?: string;
   project?: string;
+  goal_id?: string;
+  milestone_id?: string;
 };
 
 type TimelineResponse = {
   horizon: Horizon;
   items: TimelineItem[];
+};
+
+type HierarchyGoal = TimelineItem & {
+  milestones: HierarchyMilestone[];
+};
+
+type HierarchyMilestone = TimelineItem & {
+  tasks: TimelineItem[];
 };
 
 export default function PlanningPage() {
@@ -31,7 +40,6 @@ export default function PlanningPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch timeline data when horizon changes
   useEffect(() => {
     fetchTimeline();
   }, [horizon]);
@@ -60,7 +68,6 @@ export default function PlanningPage() {
         const data: TimelineResponse = await response.json();
         setItems(data.items);
       } else if (response.status === 401) {
-        // Token expired or invalid - redirect to login
         router.push("/login");
         return;
       } else {
@@ -73,20 +80,47 @@ export default function PlanningPage() {
     }
   };
 
+  const buildHierarchy = () => {
+    const goals = items.filter((item) => item.type === "goal");
+    const milestones = items.filter((item) => item.type === "milestone");
+    const tasks = items.filter((item) => item.type === "task");
+
+    const hierarchy: HierarchyGoal[] = goals.map((goal) => ({
+      ...goal,
+      milestones: milestones
+        .filter((m) => m.goal_id === goal.id)
+        .map((milestone) => ({
+          ...milestone,
+          tasks: tasks.filter((t) => t.milestone_id === milestone.id),
+        })),
+    }));
+
+    const orphanedMilestones: HierarchyMilestone[] = milestones
+      .filter((m) => !m.goal_id)
+      .map((milestone) => ({
+        ...milestone,
+        tasks: tasks.filter((t) => t.milestone_id === milestone.id),
+      }));
+
+    const orphanedTasks = tasks.filter((t) => !t.milestone_id);
+
+    return { hierarchy, orphanedMilestones, orphanedTasks };
+  };
+
+  const { hierarchy, orphanedMilestones, orphanedTasks } = buildHierarchy();
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Strategic Planning
           </h1>
           <p className="text-gray-600">
-            Multi-horizon view of your goals, milestones, and tasks
+            Hierarchical view of your goals, milestones, and tasks
           </p>
         </div>
 
-        {/* Horizon Selector */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex gap-2">
             {(["today", "week", "month", "year"] as Horizon[]).map((h) => (
@@ -105,7 +139,6 @@ export default function PlanningPage() {
           </div>
         </div>
 
-        {/* Timeline Content */}
         {loading && (
           <div className="text-center py-12">
             <p className="text-gray-600">Loading timeline...</p>
@@ -119,7 +152,7 @@ export default function PlanningPage() {
         )}
 
         {!loading && !error && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {items.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                 <p className="text-gray-500">
@@ -128,24 +161,31 @@ export default function PlanningPage() {
               </div>
             ) : (
               <>
-                {/* Group items by type */}
-                {["goal", "milestone", "task"].map((type) => {
-                  const typeItems = items.filter((item) => item.type === type);
-                  if (typeItems.length === 0) return null;
+                {hierarchy.map((goal) => (
+                  <GoalCard key={goal.id} goal={goal} />
+                ))}
 
-                  return (
-                    <div key={type} className="mb-6">
-                      <h2 className="text-lg font-semibold text-gray-900 mb-3 capitalize">
-                        {type}s ({typeItems.length})
-                      </h2>
-                      <div className="space-y-3">
-                        {typeItems.map((item) => (
-                          <TimelineItemCard key={item.id} item={item} />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                {orphanedMilestones.length > 0 && (
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold text-gray-700 mb-3">
+                      Milestones (No Goal Assigned)
+                    </h2>
+                    {orphanedMilestones.map((milestone) => (
+                      <MilestoneCard key={milestone.id} milestone={milestone} />
+                    ))}
+                  </div>
+                )}
+
+                {orphanedTasks.length > 0 && (
+                  <div className="space-y-3">
+                    <h2 className="text-lg font-semibold text-gray-700 mb-3">
+                      Tasks (Uncategorized)
+                    </h2>
+                    {orphanedTasks.map((task) => (
+                      <TaskCard key={task.id} task={task} />
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -155,107 +195,196 @@ export default function PlanningPage() {
   );
 }
 
-// Timeline Item Card Component
-function TimelineItemCard({ item }: { item: TimelineItem }) {
-  const [expanded, setExpanded] = useState(false);
-
-  // Card styling by type
-  const getCardStyle = () => {
-    switch (item.type) {
-      case "goal":
-        return "border-l-4 border-blue-500 bg-blue-50";
-      case "milestone":
-        return "border-l-4 border-purple-500 bg-purple-50";
-      case "task":
-        return "border-l-4 border-green-500 bg-green-50";
-      default:
-        return "border-l-4 border-gray-500 bg-gray-50";
-    }
-  };
-
-  // Get status badge color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-      case "in_progress":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "pending":
-      case "not_started":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+function GoalCard({ goal }: { goal: HierarchyGoal }) {
+  const [expanded, setExpanded] = useState(true);
 
   return (
-    <div
-      className={`${getCardStyle()} rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
-      onClick={() => setExpanded(!expanded)}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-gray-500 uppercase">
-              {item.type}
-            </span>
-            {item.status && (
-              <span
-                className={`text-xs px-2 py-1 rounded-full ${getStatusColor(
-                  item.status
-                )}`}
-              >
-                {item.status}
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div
+        className="border-l-4 border-blue-500 bg-blue-50 p-4 cursor-pointer hover:bg-blue-100 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold text-blue-600 uppercase">
+                GOAL
               </span>
-            )}
-            {item.priority === "high" && (
-              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
-                HIGH PRIORITY
+              {goal.status && (
+                <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                  {goal.status}
+                </span>
+              )}
+              <span className="text-xs text-gray-500">
+                {goal.milestones.length} milestone(s)
               </span>
-            )}
-          </div>
-
-          <h3 className="font-semibold text-gray-900">{item.title}</h3>
-
-          <div className="flex gap-4 mt-2 text-sm text-gray-600">
-            {item.target_date && (
-              <span>📅 Target: {item.target_date}</span>
-            )}
-            {item.due_date && <span>⏰ Due: {item.due_date}</span>}
-            {item.progress !== undefined && (
-              <span>📊 Progress: {item.progress}%</span>
-            )}
-            {item.project && <span>📁 {item.project}</span>}
-          </div>
-
-          {/* Progress bar for milestones */}
-          {item.type === "milestone" && item.progress !== undefined && (
-            <div className="mt-3">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-purple-600 h-2 rounded-full transition-all"
-                  style={{ width: `${item.progress}%` }}
-                />
-              </div>
             </div>
-          )}
-        </div>
 
-        <div className="ml-4">
-          <span className="text-gray-400 text-sm">
+            <h3 className="font-bold text-gray-900 text-lg">{goal.title}</h3>
+
+            {goal.target_date && (
+              <p className="text-sm text-gray-600 mt-2">🎯 Target: {goal.target_date}</p>
+            )}
+          </div>
+
+          <span className="text-gray-400 text-lg ml-4">
             {expanded ? "▼" : "▶"}
           </span>
         </div>
       </div>
 
-      {/* Expanded details (placeholder for future enhancement) */}
-      {expanded && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600">
-            ID: {item.id}
+      {expanded && goal.milestones.length > 0 && (
+        <div className="pl-6 py-4 space-y-4 bg-gray-50">
+          {goal.milestones.map((milestone) => (
+            <MilestoneCard key={milestone.id} milestone={milestone} />
+          ))}
+        </div>
+      )}
+
+      {expanded && goal.milestones.length === 0 && (
+        <div className="pl-6 py-4 bg-gray-50">
+          <p className="text-sm text-gray-500 italic">
+            No milestones yet. Break this goal down into quarterly checkpoints!
           </p>
-          {/* Future: Show linked items, full description, etc. */}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MilestoneCard({ milestone }: { milestone: HierarchyMilestone }) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div
+        className="border-l-4 border-purple-500 bg-purple-50 p-3 cursor-pointer hover:bg-purple-100 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold text-purple-600 uppercase">
+                MILESTONE
+              </span>
+              {milestone.status && (
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    milestone.status === "in_progress"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : milestone.status === "completed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {milestone.status}
+                </span>
+              )}
+              <span className="text-xs text-gray-500">
+                {milestone.tasks.length} task(s)
+              </span>
+            </div>
+
+            <h4 className="font-semibold text-gray-900">{milestone.title}</h4>
+
+            <div className="flex gap-4 mt-2 text-sm text-gray-600">
+              {milestone.target_date && <span>📅 {milestone.target_date}</span>}
+              {milestone.progress !== undefined && (
+                <span>📊 {milestone.progress}%</span>
+              )}
+            </div>
+
+            {milestone.progress !== undefined && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-purple-600 h-2 rounded-full transition-all"
+                    style={{ width: `${milestone.progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <span className="text-gray-400 ml-4">{expanded ? "▼" : "▶"}</span>
+        </div>
+      </div>
+
+      {expanded && milestone.tasks.length > 0 && (
+        <div className="pl-6 py-3 space-y-2 bg-gray-50">
+          {milestone.tasks.map((task) => (
+            <TaskCard key={task.id} task={task} compact />
+          ))}
+        </div>
+      )}
+
+      {expanded && milestone.tasks.length === 0 && (
+        <div className="pl-6 py-3 bg-gray-50">
+          <p className="text-xs text-gray-500 italic">
+            No tasks yet for this milestone
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskCard({ task, compact = false }: { task: TimelineItem; compact?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className={`border-l-4 border-green-500 bg-green-50 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer ${
+        compact ? "shadow-none" : "shadow-sm"
+      }`}
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-green-600 uppercase">
+              TASK
+            </span>
+            {task.status && (
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${
+                  task.status === "in_progress"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : task.status === "completed"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {task.status}
+              </span>
+            )}
+            {task.priority === "high" && (
+              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">
+                HIGH PRIORITY
+              </span>
+            )}
+          </div>
+
+          <h5 className={`font-medium text-gray-900 ${compact ? "text-sm" : ""}`}>
+            {task.title}
+          </h5>
+
+          <div className="flex gap-3 mt-1 text-xs text-gray-600">
+            {task.due_date && <span>⏰ {task.due_date}</span>}
+            {task.project && <span>📁 {task.project}</span>}
+          </div>
+        </div>
+
+        {!compact && (
+          <span className="text-gray-400 text-sm ml-4">
+            {expanded ? "▼" : "▶"}
+          </span>
+        )}
+      </div>
+
+      {expanded && !compact && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <p className="text-xs text-gray-600">ID: {task.id}</p>
         </div>
       )}
     </div>
