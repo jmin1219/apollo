@@ -56,14 +56,60 @@ class MilestoneTools:
         Raises:
             ValueError: If validation fails
         """
-        # TODO: Implement validation and creation
-        # 1. Validate title (3-200 characters)
-        # 2. Validate status (must be: "not_started", "in_progress", "completed")
-        # 3. Validate progress (0-100 integer)
-        # 4. VERIFY goal_id exists and belongs to user (IMPORTANT!)
-        # 5. Insert into "milestones" table
+        # Validate title
+        if not title or not (3 <= len(title.strip()) <= 200):
+            raise ValueError("Title must be between 3 and 200 characters.")
         
-        pass
+        # Validate status
+        if status not in ["not_started", "in_progress", "completed"]:
+            raise ValueError('Status must be one of: "not_started", "in_progress", "completed".')
+        
+        # Validate progress
+        if not isinstance(progress, int) or not (0 <= progress <= 100):
+            raise ValueError("Progress must be an integer between 0 and 100.")
+        
+        # Validate target_date
+        if not target_date or not target_date.strip():
+            raise ValueError("Target date must be provided.")
+        
+        # CRITICAL: Verify goal exists and belongs to user
+        try:
+            goal_check = self.supabase.table("goals")\
+                .select("*")\
+                .eq("id", goal_id)\
+                .eq("user_id", user_id)\
+                .execute()  # type: ignore
+            
+            if not goal_check.data:  # type: ignore
+                raise ValueError("Goal not found or access denied")
+        
+        except Exception as e:
+            raise ValueError("Goal not found or access denied") from e
+        
+        # Prepare data
+        milestone_data = {
+            "user_id": user_id,
+            "goal_id": goal_id,
+            "title": title.strip(),
+            "description": description.strip() if description else None,
+            "target_date": target_date.strip(),
+            "progress": progress,
+            "status": status
+        }
+        
+        # Insert
+        try:
+            response = self.supabase.table("milestones")\
+                .insert(milestone_data)\
+                .execute()  # type: ignore
+            
+            if not response.data:  # type: ignore
+                raise Exception("Failed to create milestone - no data returned")
+            
+            return response.data[0]  # type: ignore
+        
+        except Exception as e:
+            raise Exception(f"Database error creating milestone: {str(e)}") from e
 
     async def update_milestone_progress(
         self,
@@ -85,16 +131,46 @@ class MilestoneTools:
         Raises:
             ValueError: If validation fails or access denied
         """
-        # TODO: Implement progress update
-        # 1. Verify milestone exists and belongs to user
-        # 2. Validate progress (0-100 integer)
-        # 3. Auto-update status based on progress:
-        #    - progress == 0: status = "not_started"
-        #    - 0 < progress < 100: status = "in_progress"  
-        #    - progress == 100: status = "completed"
-        # 4. Update milestone
+        # Verify milestone exists and belongs to user
+        try:
+            milestone_check = self.supabase.table("milestones")\
+                .select("*")\
+                .eq("id", milestone_id)\
+                .eq("user_id", user_id)\
+                .execute()  # type: ignore
+
+            if not milestone_check.data:  # type: ignore
+                raise ValueError("Milestone not found or access denied")
         
-        pass
+        except Exception as e:
+            raise ValueError("Milestone not found or access denied") from e
+        
+        # Validate progress
+        if not isinstance(progress, int) or not (0 <= progress <= 100):
+            raise ValueError("Progress must be an integer between 0 and 100.")
+        
+        # Auto-update status based on progress (BUSINESS LOGIC!)
+        if progress == 0:
+            status = "not_started"
+        elif progress == 100:
+            status = "completed"
+        else:
+            status = "in_progress"
+        
+        # Update milestone
+        try:
+            response = self.supabase.table("milestones")\
+                .update({"progress": progress, "status": status})\
+                .eq("id", milestone_id)\
+                .execute()  # type: ignore
+
+            if not response.data:  # type: ignore
+                raise Exception("Failed to update milestone - no data returned")
+
+            return response.data[0]  # type: ignore
+
+        except Exception as e:
+            raise Exception(f"Database error updating milestone: {str(e)}") from e
 
     async def list_milestones(
         self,
@@ -111,10 +187,21 @@ class MilestoneTools:
         Returns:
             List of milestone dicts
         """
-        # TODO: Implement list query
-        # 1. Query milestones table for user_id
-        # 2. If goal_id provided, filter by goal_id
-        # 3. Order by target_date (closest first)
-        # 4. Return list
+        try:
+            # Build query
+            query = self.supabase.table("milestones")\
+                .select("*")\
+                .eq("user_id", user_id)
+            
+            # Add goal_id filter if provided
+            if goal_id:
+                query = query.eq("goal_id", goal_id)
+            
+            # Order by target_date (closest first)
+            response = query.order("target_date", desc=False)\
+                .execute()  # type: ignore
+            
+            return response.data or []  # type: ignore
         
-        pass
+        except Exception as e:
+            raise Exception(f"Database error listing milestones: {str(e)}") from e
