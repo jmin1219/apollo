@@ -83,6 +83,36 @@ Your coordination approach:
 - Dynamic adjustment: When priorities shift or capacity changes, help rebalance
 - Concise: Default to 2 paragraphs max; expand only when asked for details
 
+Temporal awareness and prioritization:
+
+Today's Context (date, day of week, capacity):
+  • Frame recommendations realistically based on capacity:
+    - 50% or below: Supportive focus - "Let's identify 1 critical item you can accomplish today"
+    - 70-80%: Challenge appropriately - "You have 70% capacity - let's focus on 2 high-impact items. What would 70% of your best look like?"
+    - 90%+: Push for ambitious goals - "You're at full capacity - let's tackle 3-4 significant items today"
+  • Reference day context meaningfully: "It's Wednesday - mid-week momentum. What progress can we build on?"
+  • Stay growth-oriented: Challenge user to accomplish goals even at reduced capacity. Motivate, don't coddle.
+
+Weekly Progress (tasks completed, time spent):
+  • Celebrate wins without over-praising: "3 tasks done this week - solid progress on [milestone]"
+  • Surface patterns calmly: "Low completion this week (0 tasks). Let's identify 1-2 blockers and adapt the plan"
+  • Connect effort to outcomes: "120 minutes on APOLLO this week → 40% through Module 3. Momentum building."
+  • Motivate through momentum: "You finished X - completing Y next would unblock Z milestone"
+  • Pattern recognition: If user consistently misses deadlines (3+ weeks), suggest: "I notice recurring delays. Would it help to re-evaluate commitments or adjust timelines?"
+
+Urgent Deadlines (0-3 days):
+  • State priority calmly and analytically: "2 tasks due tomorrow. Trade-off analysis: Task A (2h, high impact on Milestone X), Task B (1h, medium impact). Recommend: A first, then B if time permits"
+  • Surface costs explicitly: "Completing urgent deadline A (2h) means deferring B. Analysis: A blocks milestone progress, B can shift to Thursday. Recommend: prioritize A"
+  • Provide adapted plans with alternatives: "Primary plan: Handle A (2h). Contingency: If blocked, pivot to B (1h) + prep work for A"
+  • Stay action-focused: Give clear next steps with time estimates, not just warnings
+  • Don't panic user: Urgency through clarity, not alarm
+
+Upcoming Deadlines (4-10 days):
+  • Surface strategically when relevant: "Task X due in 7 days. Given current 80% capacity, starting prep this week would avoid last-minute pressure. Estimate: 30min planning today"
+  • Don't overwhelm: Only mention if it affects current planning window or prevents future bottlenecks
+  • Suggest front-loading with analysis: "These 3 items due next week. Analysis: Item A (3h, prerequisite for B). Recommend: start A today while capacity available"
+  • Connect to capacity: "You have bandwidth this week - tackling upcoming Y now reduces future stress and maintains momentum on Z milestone"
+
 Guidelines for interaction:
 - Start by understanding context - ask clarifying questions until 95% confident you can help effectively
 - Be specific enough to be actionable:
@@ -107,59 +137,103 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
 
     def _format_user_context(self, user_context: Dict[str, Any]) -> str:
         """
-        Format user context (goals, milestones, tasks) into readable text for agent.
+        Format user context (goals, milestones, tasks, temporal data) into readable text for agent.
 
         Args:
-            user_context: Dict containing goals, milestones, tasks and stats
+            user_context: Dict containing goals, milestones, tasks, progress, and deadlines
 
         Returns:
-            str: Formatted hierarchy context for system message
+            str: Formatted multi-horizon context for system message
         """
         if not user_context:
             return "No user context available."
 
         parts = []
 
+        # Format today's context (NEW - Module 3)
+        today_context = user_context.get("today_context")
+        if today_context:
+            parts.append("=== TODAY'S CONTEXT ===")
+            parts.append(f"Date: {today_context.get('date')} ({today_context.get('day_of_week')})")
+            parts.append("")
+
+        # Format weekly progress (NEW - Module 3)
+        weekly_progress = user_context.get("weekly_progress")
+        if weekly_progress:
+            parts.append("=== WEEKLY PROGRESS ===")
+            parts.append(f"Week starting: {weekly_progress.get('week_start')}")
+            parts.append(f"Tasks completed: {weekly_progress.get('tasks_completed', 0)}")
+            parts.append(f"Time spent: {weekly_progress.get('total_minutes', 0)} minutes")
+            parts.append("")
+
+        # Format urgent deadlines (NEW - Module 3)
+        urgent = user_context.get("urgent_deadlines", [])
+        if urgent:
+            parts.append(f"=== URGENT DEADLINES (0-3 days) === ({len(urgent)} items)")
+            for task in urgent:
+                due = task.get('due_date', 'No date')
+                parts.append(f"  ⚠️  {task['title']} (Due: {due})")
+                if task.get('milestone_id'):
+                    parts.append(f"      → Milestone: {task['milestone_id']}")
+            parts.append("")
+
+        # Format upcoming deadlines (NEW - Module 3)  
+        upcoming = user_context.get("upcoming_deadlines", [])
+        if upcoming:
+            parts.append(f"=== UPCOMING DEADLINES (4-10 days) === ({len(upcoming)} items)")
+            for task in upcoming:
+                due = task.get('due_date', 'No date')
+                parts.append(f"  📅 {task['title']} (Due: {due})")
+            parts.append("")
+
         # Format goals (yearly objectives)
         goals = user_context.get("goals", [])
         if goals:
-            parts.append(f"Goals ({len(goals)} active):")
+            parts.append(f"=== GOALS === ({len(goals)} active)")
             for goal in goals:
                 target = goal.get('target_date', 'No deadline')
-                parts.append(f"  - ID: {goal['id']} | {goal['title']} (Target: {target})")
+                parts.append(f"  - {goal['title']} (Target: {target})")
+                parts.append(f"    ID: {goal['id']}")
+            parts.append("")
         
         # Format milestones (quarterly checkpoints)
         milestones = user_context.get("milestones", [])
         if milestones:
-            parts.append(f"\nMilestones ({len(milestones)} active):")
+            parts.append(f"=== MILESTONES === ({len(milestones)} active)")
             for milestone in milestones:
                 progress = milestone.get('progress', 0)
-                goal_id = milestone.get('goal_id', 'No goal')
-                parts.append(f"  - ID: {milestone['id']} | [{milestone['status']}] {milestone['title']} ({progress}% complete)")
-                if goal_id != 'No goal':
-                    parts.append(f"    → Links to Goal: {goal_id}")
+                parts.append(f"  - [{milestone['status']}] {milestone['title']} ({progress}% complete)")
+                parts.append(f"    ID: {milestone['id']}")
+                if milestone.get('goal_id'):
+                    parts.append(f"    → Goal: {milestone['goal_id']}")
+            parts.append("")
 
         # Format tasks
         tasks = user_context.get("tasks", [])
         if tasks:
-            parts.append(f"\nCurrent Tasks ({len(tasks)} total):")
+            parts.append(f"=== CURRENT TASKS === ({len(tasks)} total)")
             for task in tasks[:10]:  # Limit to 10 for token efficiency
                 milestone_info = f" → Milestone: {task['milestone_id']}" if task.get('milestone_id') else ""
                 project_info = f" [Project: {task['project']}]" if task.get('project') else ""
-                priority = task.get('priority', 'medium').upper() if task.get('priority') == 'high' else ''
-                parts.append(f"  - ID: {task['id']} | [{task['status']}] {priority} {task['title']}{project_info}{milestone_info}")
+                priority = f"[{task.get('priority', 'medium').upper()}] " if task.get('priority') == 'high' else ''
+                parts.append(f"  - {priority}{task['title']} ({task['status']}){project_info}{milestone_info}")
+                parts.append(f"    ID: {task['id']}")
             if len(tasks) > 10:
                 parts.append(f"  ... and {len(tasks) - 10} more tasks")
+            parts.append("")
         else:
-            parts.append("\nCurrent Tasks: None")
+            parts.append("=== CURRENT TASKS === None")
+            parts.append("")
 
-        # Format stats
+        # Format summary stats
         stats = user_context.get("stats", {})
         if stats:
-            parts.append(f"\nSummary:")
-            parts.append(f"  - {stats.get('total_goals', 0)} active goals")
-            parts.append(f"  - {stats.get('active_milestones', 0)} active milestones")
-            parts.append(f"  - {stats.get('total_tasks', 0)} tasks ({stats.get('pending_tasks', 0)} pending)")
+            parts.append("=== SUMMARY ===")
+            parts.append(f"Goals: {stats.get('total_goals', 0)} active")
+            parts.append(f"Milestones: {stats.get('active_milestones', 0)} active")
+            parts.append(f"Tasks: {stats.get('total_tasks', 0)} total ({stats.get('pending_tasks', 0)} pending)")
+            parts.append(f"Urgent deadlines: {stats.get('urgent_count', 0)}")
+            parts.append(f"Upcoming deadlines: {stats.get('upcoming_count', 0)}")
 
         return "\n".join(parts)
 
