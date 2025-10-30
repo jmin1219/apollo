@@ -364,8 +364,8 @@ def _get_encoding_cached(model: str):
 
 ### Live Instances
 
-**Frontend:** [apollo-frontend.vercel.app](https://apollo-frontend.vercel.app) (Vercel)  
-**Backend:** [apollo-backend.onrender.com](https://apollo-backend.onrender.com) (Render)  
+**Frontend:** [https://apollo-chi-plum.vercel.app/](https://apollo-chi-plum.vercel.app/) (Vercel)  
+**Backend:** [https://apollo-uaov.onrender.com](https://apollo-uaov.onrender.com) (Render)  
 **Database:** Supabase (PostgreSQL)
 
 ### Environment Variables
