@@ -67,6 +67,15 @@ APOLLO: [creates task in database] "I've added 'Review Module 2.1 notes'
 
 ## ✨ Features
 
+### 📊 Strategic Planning System **NEW - Oct 29**
+- **Multi-Horizon Timeline** - View across 4 time scales (Today/Week/Month/Year)
+- **Hierarchical Visualization** - Nested Goals → Milestones → Tasks with visual indentation
+- **Temporal Detail Gradient** - More detail for near-term, strategic overview for far-term
+- **9 Planning Tools** - GoalTools, MilestoneTools, ProgressTools (100% test coverage)
+- **Intelligent Automation** - Auto-status updates (0%→not_started, 50%→in_progress, 100%→completed)
+- **Progress Analytics** - Weekly completion, goal progress calculation, blocker detection
+- **Context Aggregation** - Today's capacity, weekly progress, urgent/upcoming deadlines
+
 ### 🤖 AI Agent with Strategic Intelligence
 - **LifeCoordinator Agent** - Multi-horizon planning across day/week/month/year
 - **Goal Hierarchy Thinking** - Tasks → Projects → Milestones → Goals
@@ -496,25 +505,24 @@ This project demonstrates mastery of:
 - "Designed strategic system prompts with goal-hierarchy thinking"
 - "Enforced security in AI systems with validation layers"
 - "Deployed full-stack app to production with CI/CD"
+- "Built hierarchical timeline visualization transforming flat data into nested trees" **NEW**
+- "Implemented multi-horizon context aggregation with temporal detail gradients" **NEW**
+- "Created 9 production-quality agent tools with 100% test coverage" **NEW**
+- "Designed intelligent automation with auto-status management" **NEW**
 
 ---
 
 ## 📊 Project Metrics
 
-**Development Time:** 5 days (Oct 22-27, 2025)  
 **Total Lines of Code:** ~3,500+  
 **Technologies Used:** 15+  
 **API Endpoints:** 12  
 **Database Tables:** 4 (users, tasks, conversations, messages)
 
 **Modules Completed:**
-- ✅ Module 1.1: FastAPI Setup
-- ✅ Module 1.2: Database Integration  
-- ✅ Module 1.3: Task Management CRUD
-- ✅ Module 1.4: Authentication
-- ✅ Module 1.5: Frontend Development
-- ✅ Module 2.1: AI Agent Foundation
-- ✅ Module 2.2: Conversation Persistence
+- ✅ Module 1: Foundation (Database, Auth, Task CRUD, Frontend)
+- ✅ Module 2: AI Agent System (Streaming, Function Calling, Persistence, Goal Hierarchy)
+- ✅ Module 3: Strategic Planning System (Multi-horizon Context, 9 Planning Tools, Timeline Visualization) **NEW - Oct 29**
 
 ---
 
@@ -562,8 +570,8 @@ Targeting visa-sponsored SWE roles (Spring 2027)
 
 **Portfolio:** [portfolio.jayminchang.com](https://portfolio.jayminchang.com) *(coming soon)*  
 **GitHub:** [github.com/jmin1219](https://github.com/jmin1219)  
-**Email:** chang.jaym@northeastern.edu  
-**LinkedIn:** [linkedin.com/in/jaymin-chang](https://linkedin.com/in/jaymin-chang)
+**Email:** chang.jay@northeastern.edu  
+**LinkedIn:** [linkedin.com/in/jaymin-chang](https://linkedin.com/in/jaymin-chang-professional)
 
 ---
 
@@ -573,7 +581,7 @@ MIT License - Feel free to learn from this code!
 
 ---
 
-**Status:** ✅ Production-Ready | **Last Updated:** October 27, 2025  
+**Status:** ✅ Production-Ready | **Last Updated:** October 29, 2025  
 **Portfolio Project** | **Interview-Ready Demo** | **Production Deployment**
 
 *Built with strategic thinking in Vancouver, BC 🇨🇦*
