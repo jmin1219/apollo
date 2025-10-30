@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/auth";
+import { PlanningModal } from "@/components/planning/PlanningModal";
 
 type Horizon = "today" | "week" | "month" | "year";
 
@@ -39,6 +40,7 @@ export default function PlanningPage() {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPlanningModal, setShowPlanningModal] = useState(false);
 
   useEffect(() => {
     fetchTimeline();
@@ -113,12 +115,22 @@ export default function PlanningPage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Strategic Planning
-          </h1>
-          <p className="text-gray-600">
-            Hierarchical view of your goals, milestones, and tasks
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Strategic Planning
+              </h1>
+              <p className="text-gray-600">
+                Hierarchical view of your goals, milestones, and tasks
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPlanningModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              + New Goal
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -191,6 +203,16 @@ export default function PlanningPage() {
           </div>
         )}
       </div>
+
+      {/* Planning Modal */}
+      <PlanningModal
+        isOpen={showPlanningModal}
+        onClose={() => setShowPlanningModal(false)}
+        onGoalCreated={() => {
+          setShowPlanningModal(false);
+          fetchTimeline(); // Refresh timeline after creating goal
+        }}
+      />
     </div>
   );
 }
