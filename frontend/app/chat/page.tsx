@@ -139,10 +139,11 @@ export default function ChatPage() {
         }
       }
 
-      // Prepare conversation history
+      // Prepare conversation history (last 10 messages only to avoid token limits)
       const conversationHistory = messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m) => ({ role: m.role, content: m.content }))
+        .slice(-10); // Only send last 10 messages
 
       const response = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
@@ -150,7 +151,11 @@ export default function ChatPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('JWT_AUTH_TOKEN')}`,
         },
-        body: JSON.stringify({ message: userInput, conversation_history: conversationHistory }),
+        body: JSON.stringify({ 
+          message: userInput, 
+          conversation_id: currentConversationId, // Add conversation_id!
+          conversation_history: conversationHistory 
+        }),
       });
 
       if (!response.ok || !response.body) {
@@ -165,8 +170,21 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, assistantMessage]);
 
       let isDone = false;
+      let timeout: NodeJS.Timeout | null = null;
+      
+      // Set a 30 second timeout in case stream never completes
+      timeout = setTimeout(() => {
+        if (!isDone) {
+          console.error('Stream timeout - forcing completion');
+          setIsStreaming(false);
+        }
+      }, 30000);
+      
       while (true) {
-        if (isDone) break;
+        if (isDone) {
+          if (timeout) clearTimeout(timeout);
+          break;
+        }
 
         const { done, value } = await reader.read();
         if (done) break;
@@ -179,8 +197,23 @@ export default function ChatPage() {
             const json = JSON.parse(line.slice(6));
             if (json.type === 'chunk') {
               assistantContent += json.content;
+            } else if (json.type === 'progress') {
+              // Show progress message but don't add to content
+              setMessages((prev) => {
+                const lastMessage = prev[prev.length - 1];
+                if (lastMessage && lastMessage.role === 'assistant') {
+                  return [...prev.slice(0, -1), { ...lastMessage, content: json.content }];
+                }
+                return prev;
+              });
             } else if (json.type === 'done') {
               isDone = true;
+              if (timeout) clearTimeout(timeout);
+              break;
+            } else if (json.type === 'error') {
+              isDone = true;
+              if (timeout) clearTimeout(timeout);
+              console.error('Stream error:', json.content);
               break;
             }
 
@@ -196,37 +229,27 @@ export default function ChatPage() {
         }
       }
 
-      // After streaming is done, save message to database
+      // Backend now automatically saves messages to DB via /chat/stream
+      // Reload conversation to show saved messages
       if (currentConversationId) {
         const token = localStorage.getItem('JWT_AUTH_TOKEN');
+        const messagesRes = await fetch(
+          `${API_BASE}/conversations/${currentConversationId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
-        // Save user message
-        await fetch(`${API_BASE}/conversations/${currentConversationId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            conversation_id: currentConversationId,
-            role: 'user',
-            content: userInput,
-          }),
-        });
-
-        // Save assistant message
-        await fetch(`${API_BASE}/conversations/${currentConversationId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            conversation_id: currentConversationId,
-            role: 'assistant',
-            content: assistantContent,
-          }),
-        });
+        if (messagesRes.ok) {
+          const data = await messagesRes.json();
+          const loadedMessages: Message[] = data.messages.map((msg: MessageResponse) => ({
+            role: msg.role,
+            content: msg.content,
+          }));
+          setMessages(loadedMessages);
+        }
       }
 
       setIsStreaming(false);
@@ -237,7 +260,7 @@ export default function ChatPage() {
       // Show error message
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again.',
+        content: 'Sorry, something went wrong. The action may have completed - try refreshing the page.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     }

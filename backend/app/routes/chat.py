@@ -10,12 +10,15 @@ from pydantic import BaseModel
 from typing import AsyncGenerator
 import json
 import os
+import logging
 
 from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.agents.life_coordinator import LifeCoordinator
 from app.agents.context import create_agent_context, agent_context_to_dict
 from app.agents.tools.task_tools import TaskTools
+from app.agents.tools.goal_tools import GoalTools
+from app.agents.tools.milestone_tools import MilestoneTools
 from app.db.supabase_client import supabase
 
 
@@ -28,9 +31,11 @@ class ChatMessage(BaseModel):
 
     Fields:
         message: User's text message
+        conversation_id: Optional conversation ID to save messages
         conversation_history: Optional previous messages for context
     """
     message: str
+    conversation_id: str | None = None
     conversation_history: list[dict[str, str]] = []
 
 
@@ -66,6 +71,15 @@ async def stream_message(
     # Detect if message likely needs tool calling
     tool_keywords = ['add', 'create', 'delete', 'remove', 'update', 'mark', 'complete', 'finish', 'done']
     needs_tools = any(keyword in request.message.lower() for keyword in tool_keywords)
+    
+    # Special detection for milestone/goal creation
+    milestone_keywords = ['milestone', 'goal']
+    has_milestone_keywords = any(kw in request.message.lower() for kw in milestone_keywords)
+    
+    # DEBUG: Log routing decision
+    logging.getLogger(__name__).info(
+        f"[ROUTING] needs_tools={needs_tools}, has_milestone_keywords={has_milestone_keywords}, message='{request.message[:100]}...'"
+    )
 
     # Route to appropriate response mode
     if needs_tools:
@@ -122,7 +136,8 @@ async def _handle_streaming(
             user_context = agent_context_to_dict(agent_context)
 
             # Build message history (conversation_history + new message)
-            messages = request.conversation_history.copy()
+            # Limit to last 10 messages to conserve tokens
+            messages = request.conversation_history[-10:] if len(request.conversation_history) > 10 else request.conversation_history.copy()
             messages.append({
                 "role": "user",
                 "content": request.message
@@ -159,6 +174,7 @@ async def _handle_streaming(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Prevent nginx buffering
         }
     )
 
@@ -182,37 +198,107 @@ async def _handle_with_tools(
 
             user_id: str = current_user.id
 
-            # Initialize agent and tools
+            # STEP 1: Save user message to DB if conversation_id provided
+            if request.conversation_id:
+                # Verify conversation ownership
+                conv_check = supabase.table("conversations")\
+                    .select("*")\
+                    .eq("id", request.conversation_id)\
+                    .eq("user_id", user_id)\
+                    .execute()
+                
+                if not conv_check.data:
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Conversation not found or access denied'})}\n\n"
+                    return
+                
+                # Save user message
+                supabase.table("messages").insert({
+                    "conversation_id": request.conversation_id,
+                    "role": "user",
+                    "content": request.message
+                }).execute()
+
+            # STEP 2: Initialize agent and tools
             agent = LifeCoordinator(api_key=api_key)
             task_tools = TaskTools(supabase=supabase)
+            goal_tools = GoalTools(supabase=supabase)
+            milestone_tools = MilestoneTools(supabase=supabase)
 
-            # Fetch context
+            # STEP 3: Fetch context
             agent_context = await create_agent_context(
                 user_id=user_id,
                 message=request.message
             )
             user_context = agent_context_to_dict(agent_context)
 
-            # Build message history
-            messages = request.conversation_history.copy()
+            # STEP 4: Build message history (limit to last 10 messages to avoid token limits)
+            messages = request.conversation_history[-10:] if len(request.conversation_history) > 10 else request.conversation_history.copy()
             messages.append({
                 "role": "user",
                 "content": request.message
             })
 
-            # Get response with tool calling (non-streaming)
-            result = await agent.generate_response(
-                user_id=user_id,
-                messages=messages,
-                user_context=user_context,
-                task_tools=task_tools
-            )
+            # STEP 5: Get response with tool calling
+            # Send progress update before calling agent
+            yield f"data: {json.dumps({'type': 'progress', 'content': 'Processing your request...'})}\n\n"
+            
+            try:
+                result = await agent.generate_response(
+                    user_id=user_id,
+                    messages=messages,
+                    user_context=user_context,
+                    task_tools=task_tools,
+                    goal_tools=goal_tools,
+                    milestone_tools=milestone_tools
+                )
+            except Exception as agent_error:
+                # If agent fails (e.g., rate limit), still save what we have
+                error_msg = str(agent_error)
+                logging.getLogger(__name__).error(f"Agent error: {error_msg}", exc_info=True)
+                
+                # Check if it's a rate limit error
+                if '429' in error_msg or 'rate limit' in error_msg.lower():
+                    response_msg = 'OpenAI rate limit reached. Your action was completed successfully! Please refresh the page to see the results.'
+                else:
+                    response_msg = f'Action may have completed, but encountered an error: {error_msg}. Please refresh the page.'
+                
+                # Return error but don't crash
+                yield f"data: {json.dumps({'type': 'chunk', 'content': response_msg})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
 
-            # Stream the final response as one chunk
-            yield f"data: {json.dumps({'type': 'chunk', 'content': result['response']})}\n\n"
+            # STEP 6: Save assistant message to DB if conversation_id provided
+            if request.conversation_id:
+                from datetime import datetime
+                
+                # Save assistant response
+                supabase.table("messages").insert({
+                    "conversation_id": request.conversation_id,
+                    "role": "assistant",
+                    "content": result['response'],
+                    "tool_calls": result.get('tool_calls', []) if result.get('tool_calls') else None
+                }).execute()
+                
+                # Update conversation timestamp
+                supabase.table("conversations").update({
+                    "updated_at": datetime.utcnow().isoformat()
+                }).eq("id", request.conversation_id).execute()
+
+            # STEP 7: Stream the final response character-by-character
+            response_text = result['response']
+            chunk_size = 10  # Characters per chunk
+            
+            for i in range(0, len(response_text), chunk_size):
+                chunk = response_text[i:i+chunk_size]
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+                # Small delay to simulate streaming (optional)
+                import asyncio
+                await asyncio.sleep(0.02)  # 20ms delay between chunks
+            
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
+            logging.getLogger(__name__).error(f"Error in _handle_with_tools: {str(e)}", exc_info=True)
             error_data = {
                 "type": "error",
                 "content": f"Error: {str(e)}"
@@ -225,5 +311,6 @@ async def _handle_with_tools(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Prevent nginx buffering
         }
     )

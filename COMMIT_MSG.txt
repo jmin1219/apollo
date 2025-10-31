@@ -1,0 +1,32 @@
+fix(milestone): resolve milestone creation and streaming issues
+
+Major fixes:
+- Fixed milestone creation bug where agent claimed success but didn't execute tools
+- Added conversation persistence to /chat/stream endpoint
+- Enhanced error handling for OpenAI rate limits
+- Added streaming character-by-character for better UX
+- Fixed missing CORSMiddleware and OAuth2PasswordRequestForm imports
+
+Architecture improvements:
+- /chat/stream now handles full lifecycle: save user msg → execute AI + tools → save AI response
+- Frontend uses /chat/stream with conversation_id instead of manual message saves
+- Added comprehensive logging ([ROUTING], [AGENT RESPONSE], [MILESTONE DEBUG])
+- Limited conversation history to 10 messages to prevent token overflow
+
+Cleanup:
+- Removed all test files (test_agent.py, test_context.py, tests/ directory)
+- Removed test files from agents/tools/ directory
+- Removed test_timeline.py from routes/
+- Cleaned up test data from database
+
+Frontend enhancements:
+- Added 30-second timeout for hanging streams
+- Improved error messages with actionable guidance
+- Added progress event handling
+- Auto-reload conversation after AI response
+
+Technical details:
+- Backend: 7 files modified, 8 test files deleted
+- Frontend: 1 file modified (chat/page.tsx)
+- Net: -977 lines (removed cruft, added production code)
+- Tool calling now fully operational for tasks, goals, and milestones

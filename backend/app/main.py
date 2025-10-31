@@ -1,4 +1,11 @@
 from typing import Any, cast
+import logging
+
+# Configure logging FIRST, before any other imports
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

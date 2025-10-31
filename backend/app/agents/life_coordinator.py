@@ -1,5 +1,7 @@
+
 from .base import BaseAgent
 from typing import Dict, Any, Optional, cast
+import logging
 
 class LifeCoordinator(BaseAgent):
     """
@@ -177,7 +179,7 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
                     parts.append(f"      → Milestone: {task['milestone_id']}")
             parts.append("")
 
-        # Format upcoming deadlines (NEW - Module 3)  
+        # Format upcoming deadlines (NEW - Module 3)
         upcoming = user_context.get("upcoming_deadlines", [])
         if upcoming:
             parts.append(f"=== UPCOMING DEADLINES (4-10 days) === ({len(upcoming)} items)")
@@ -195,7 +197,7 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
                 parts.append(f"  - {goal['title']} (Target: {target})")
                 parts.append(f"    ID: {goal['id']}")
             parts.append("")
-        
+
         # Format milestones (quarterly checkpoints)
         milestones = user_context.get("milestones", [])
         if milestones:
@@ -261,21 +263,21 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
                 "type": "function",
                 "function": {
                     "name": "create_task",
-                    "description": """Create a new task when user explicitly requests adding, creating, or remembering something they need to do.
+                    "description": """Create a TASK (daily/weekly action item) when user requests a small, specific action.
 
-Use this when user says things like:
-- "Add X to my task list"
-- "Create a task for X"
-- "Remember to X"
-- "I need to do X, add it"
-- "Put X on my list"
+Use create_task ONLY for:
+- Small, concrete actions: "Buy milk", "Email John", "Review notes"
+- Things that take hours/days, not weeks/months
+- User explicitly says "add task" or "create task"
 
-DO NOT use this when:
-- User is asking about existing tasks ("What tasks do I have?")
-- User is planning ("I should probably do X" - suggest they create it, but don't auto-create)
-- User is discussing hypothetically
+DO NOT use create_task when:
+- User mentions "goal" → use create_goal instead
+- User mentions long-term objective (weeks/months) → use create_goal
+- User mentions "milestone" → use create_milestone
+- Planning major initiatives → use create_goal then break into milestones
+- User says "plan for X" where X is big → use create_goal
 
-Always extract the core action/outcome as the title. Be concise but clear.""",
+Tasks are SMALL actions. Goals are BIG objectives. Choose appropriately!""",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -402,6 +404,109 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
                         "required": ["task_id"]
                     }
                 }
+            },
+            # GOAL MANAGEMENT TOOLS
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_goal",
+                    "description": """Create a new goal when user wants to establish a yearly/long-term objective.
+
+Use this when user says:
+- "I want to achieve X by [date]"
+- "My goal is to X"
+- "Help me plan for X" (and X is a major objective)
+- "Create a goal for X"
+
+Goals are high-level objectives (e.g., "Secure SWE Co-op Fall 2026", "Complete APOLLO by December").
+They should have clear target dates and be broken down into milestones later.""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Clear goal title (3-200 chars). Examples: 'Secure Full-Stack SWE Co-op Fall 2026', 'Complete APOLLO Project'"
+                            },
+                            "target_date": {
+                                "type": "string",
+                                "description": "Target completion date in ISO format (YYYY-MM-DD). Examples: '2026-09-01', '2027-01-31'"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional detailed description of the goal, success criteria, or context"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["active", "completed", "archived"],
+                                "description": "Goal status. Default: 'active'"
+                            }
+                        },
+                        "required": ["title", "target_date"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_milestone",
+                    "description": """Create a milestone to break down a goal into quarterly/monthly checkpoints.
+
+Use this when:
+- User asks to break down a goal
+- Planning major objective into phases
+- Creating intermediate checkpoints toward a goal
+
+Milestones connect to goals via goal_id (find in user context).
+
+NOTE: To create multiple milestones, call this function multiple times (OpenAI supports parallel tool calls).""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "goal_id": {
+                                "type": "string",
+                                "description": "UUID of the parent goal. Find this in the user's context under GOALS section."
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "Milestone title (3-200 chars). Examples: 'Complete Resume v1', 'Apply to 20 Companies', 'Finish Module 3'"
+                            },
+                            "target_date": {
+                                "type": "string",
+                                "description": "Target completion date in ISO format (YYYY-MM-DD)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional detailed description"
+                            }
+                        },
+                        "required": ["goal_id", "title", "target_date"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_goals",
+                    "description": """List user's goals, optionally filtered by status.
+
+Use this when user asks:
+- "What are my goals?"
+- "Show me my active goals"
+- "What am I working toward?"
+
+Returns all goals with their IDs (needed for creating milestones).""",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "enum": ["active", "completed", "archived"],
+                                "description": "Optional status filter. Omit to show all goals."
+                            }
+                        },
+                        "required": []
+                    }
+                }
             }
         ]
 
@@ -410,7 +515,9 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
         user_id: str,
         messages: list[dict[str, str]],
         user_context: Optional[dict[str, Any]] = None,
-        task_tools: Any = None  # NEW: TaskTools instance
+        task_tools: Any = None,
+        goal_tools: Any = None,
+        milestone_tools: Any = None
     ) -> dict[str, Any]:  # Changed return type!
         """
         Generate strategic response with function calling support.
@@ -473,13 +580,29 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
         }
 
         # Only add tools if task_tools provided
-        if task_tools:
+        if task_tools or goal_tools or milestone_tools:
             api_params["tools"] = self._get_function_definitions()
             api_params["tool_choice"] = "auto"  # Agent decides if/when to call
 
         response = await self.client.chat.completions.create(**api_params)
 
         message = response.choices[0].message
+
+        # DEBUG: log tool calls returned by the model so we can inspect
+        # whether the model returned multiple function calls or a single one.
+        logger = logging.getLogger(__name__)
+        logger.info(f"[AGENT RESPONSE] Agent returned message content: {message.content[:200] if message.content else 'None'}")
+        logger.info(f"[AGENT RESPONSE] Agent tool_calls attribute: {hasattr(message, 'tool_calls')}")
+        if hasattr(message, 'tool_calls'):
+            logger.info(f"[AGENT RESPONSE] Number of tool calls: {len(message.tool_calls) if message.tool_calls else 0}")
+        try:
+            logger.info("[AGENT RESPONSE] Tool calls details: %s", [
+                {"name": tc.function.name, "arguments": tc.function.arguments}
+                for tc in getattr(message, "tool_calls", []) or []
+            ])
+        except Exception:
+            # Never raise from logging; keep behavior unchanged if attribute differs
+            logger.exception("Failed to log tool_calls")
 
         # 5. Check if agent wants to call functions
         if message.tool_calls:
@@ -488,7 +611,9 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
             tool_results = await self._execute_tool_calls(
                 message.tool_calls,
                 user_id,
-                task_tools
+                task_tools,
+                goal_tools,
+                milestone_tools
             )
 
             # Get final response incorporating tool results
@@ -513,7 +638,9 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
         self,
         tool_calls: list,
         user_id: str,
-        task_tools: Any
+        task_tools: Any,
+        goal_tools: Any,
+        milestone_tools: Any
     ) -> list[dict[str, Any]]:
         """
         Execute agent's requested tool calls.
@@ -544,12 +671,30 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
             ]
         """
         import json
+        logger = logging.getLogger(__name__)  # Add logger here!
 
         results = []
+
+        # DEBUG: log incoming tool_calls list (names only) before execution
+        try:
+            logging.getLogger(__name__).debug(
+                "Executing %d tool_calls: %s",
+                len(tool_calls),
+                [getattr(tc.function, "name", str(tc)) for tc in tool_calls]
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to log incoming tool_calls list")
 
         for tool_call in tool_calls:
             function_name = tool_call.function.name
             function_args = json.loads(tool_call.function.arguments)
+
+            # DEBUG: log parsed function arguments for each call
+            logging.getLogger(__name__).debug(
+                "Tool call parsed: %s args=%s",
+                function_name,
+                function_args
+            )
 
             try:
                 # Route to appropriate tool function
@@ -588,7 +733,68 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
                         "result": {"deleted": True},
                         "error": None
                     })
+                elif function_name == "create_goal":
+                    if not goal_tools:
+                        results.append({
+                            "tool": function_name,
+                            "status": "error",
+                            "result": None,
+                            "error": "Goal tools not available"
+                        })
+                    else:
+                        result = await goal_tools.create_goal(
+                            user_id=user_id,
+                            **function_args
+                        )
+                        results.append({
+                            "tool": function_name,
+                            "status": "success",
+                            "result": result,
+                            "error": None
+                        })
 
+                elif function_name == "create_milestone":
+                    logger.info(f"[MILESTONE DEBUG] Attempting to create milestone with args: {function_args}")
+                    if not milestone_tools:
+                        logger.error("[MILESTONE DEBUG] milestone_tools is None!")
+                        results.append({
+                            "tool": function_name,
+                            "status": "error",
+                            "result": None,
+                            "error": "Milestone tools not available"
+                        })
+                    else:
+                        logger.info(f"[MILESTONE DEBUG] milestone_tools available, calling create_milestone")
+                        result = await milestone_tools.create_milestone(
+                            user_id=user_id,
+                            **function_args
+                        )
+                        logger.info(f"[MILESTONE DEBUG] Milestone created successfully: {result}")
+                        results.append({
+                            "tool": function_name,
+                            "status": "success",
+                            "result": result,
+                            "error": None
+                        })
+                elif function_name == "list_goals":
+                    if not goal_tools:
+                        results.append({
+                            "tool": function_name,
+                            "status": "error",
+                            "result": None,
+                            "error": "Goal tools not available"
+                        })
+                    else:
+                        result = await goal_tools.list_goals(
+                            user_id=user_id,
+                            **function_args
+                        )
+                        results.append({
+                            "tool": function_name,
+                            "status": "success",
+                            "result": result,
+                            "error": None
+                        })
                 else:
                     # Unknown function - shouldn't happen, but handle it
                     results.append({
@@ -600,6 +806,7 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
 
             except ValueError as e:
                 # Validation error (bad input, task not found, etc.)
+                logger.error(f"[TOOL ERROR] ValueError in {function_name}: {str(e)}")
                 results.append({
                     "tool": function_name,
                     "status": "error",
@@ -609,6 +816,7 @@ CAUTION: Deletion is permanent. If user seems uncertain, confirm before calling.
 
             except Exception as e:
                 # Database or unexpected error
+                logger.error(f"[TOOL ERROR] Exception in {function_name}: {str(e)}", exc_info=True)
                 results.append({
                     "tool": function_name,
                     "status": "error",

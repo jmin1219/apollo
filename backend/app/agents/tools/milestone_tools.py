@@ -56,8 +56,13 @@ class MilestoneTools:
         Raises:
             ValueError: If validation fails
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[MILESTONE TOOL] create_milestone called: user_id={user_id}, goal_id={goal_id}, title={title}, target_date={target_date}")
+        
         # Validate title
         if not title or not (3 <= len(title.strip()) <= 200):
+            logger.error(f"[MILESTONE TOOL] Title validation failed: {title}")
             raise ValueError("Title must be between 3 and 200 characters.")
         
         # Validate status
@@ -99,16 +104,22 @@ class MilestoneTools:
         
         # Insert
         try:
+            logger.info(f"[MILESTONE TOOL] Inserting milestone into database: {milestone_data}")
             response = self.supabase.table("milestones")\
                 .insert(milestone_data)\
                 .execute()  # type: ignore
             
+            logger.info(f"[MILESTONE TOOL] Database response: {response.data}")
+            
             if not response.data:  # type: ignore
+                logger.error("[MILESTONE TOOL] No data returned from insert")
                 raise Exception("Failed to create milestone - no data returned")
             
+            logger.info(f"[MILESTONE TOOL] Successfully created milestone: {response.data[0]}")
             return response.data[0]  # type: ignore
         
         except Exception as e:
+            logger.error(f"[MILESTONE TOOL] Database error: {str(e)}", exc_info=True)
             raise Exception(f"Database error creating milestone: {str(e)}") from e
 
     async def update_milestone_progress(
