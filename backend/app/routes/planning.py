@@ -174,14 +174,20 @@ async def get_timeline(
             pass
 
     elif horizon == "year":
-        # This year: Active goals + major milestones
+        # Next 18 months: Active goals + major milestones
+        # Extended to capture goals 15+ months out (like Jan 2027 co-op)
+        today_str = today.strftime("%Y-%m-%d")
+        eighteen_months = (today + timedelta(days=545)).strftime("%Y-%m-%d")  # ~18 months
+        
         try:
             goals_response = supabase.table("goals")\
                 .select("*")\
                 .eq("user_id", user_id)\
                 .eq("status", "active")\
+                .gte("target_date", today_str)\
+                .lte("target_date", eighteen_months)\
                 .order("target_date", desc=False)\
-                .limit(5)\
+                .limit(10)\
                 .execute()  # type: ignore
 
             goals = goals_response.data or []  # type: ignore
@@ -199,8 +205,10 @@ async def get_timeline(
                 .select("*")\
                 .eq("user_id", user_id)\
                 .in_("status", ["not_started", "in_progress"])\
+                .gte("target_date", today_str)\
+                .lte("target_date", eighteen_months)\
                 .order("target_date", desc=False)\
-                .limit(5)\
+                .limit(20)\
                 .execute()  # type: ignore
 
             milestones = milestones_response.data or []  # type: ignore
