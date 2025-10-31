@@ -152,6 +152,23 @@ Remember: You coordinate across goals, time horizons, and life domains. Help use
 
         parts = []
 
+        # ADD PROFILE SECTION
+        profile = user_context.get("user_profile", {})
+        if profile:
+            parts.append("=== USER PROFILE ===")
+            if profile.get("identity"):
+                parts.append(f"Name: {profile['identity'].get('name')}")
+            if profile.get("active_goals"):
+                for key, val in profile['active_goals'].items():
+                    parts.append(f"{key.title()}: {val}")
+            if profile.get("patterns"):
+                patterns = profile['patterns']
+                if patterns.get('peak_hours'):
+                    parts.append(f"Peak hours: {patterns['peak_hours']}")
+                if patterns.get('learning_style'):
+                    parts.append(f"Learning: {patterns['learning_style']}")
+            parts.append("")
+
         # Format today's context (NEW - Module 3)
         today_context = user_context.get("today_context")
         if today_context:
@@ -923,6 +940,8 @@ Returns all goals with their IDs (needed for creating milestones).""",
         Note:
             This is an async generator - yields values instead of returning a single value.
         """
+
+
         # Build messages array (same as before)
         full_messages = [
             {"role": "system", "content": self.system_prompt}
@@ -954,3 +973,11 @@ Returns all goals with their IDs (needed for creating milestones).""",
 
             if delta.content:
                 yield delta.content
+
+        if user_context:
+            context_str = self._format_user_context(user_context)
+            print(f"\n=== FORMATTED CONTEXT ===\n{context_str[:800]}\n")  # DEBUG
+            full_messages.append({
+                "role": "system",
+                "content": f"User Context:\n{context_str}"
+            })

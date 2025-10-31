@@ -229,28 +229,7 @@ export default function ChatPage() {
         }
       }
 
-      // Backend now automatically saves messages to DB via /chat/stream
-      // Reload conversation to show saved messages
-      if (currentConversationId) {
-        const token = localStorage.getItem('JWT_AUTH_TOKEN');
-        const messagesRes = await fetch(
-          `${API_BASE}/conversations/${currentConversationId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
 
-        if (messagesRes.ok) {
-          const data = await messagesRes.json();
-          const loadedMessages: Message[] = data.messages.map((msg: MessageResponse) => ({
-            role: msg.role,
-            content: msg.content,
-          }));
-          setMessages(loadedMessages);
-        }
-      }
 
       setIsStreaming(false);
     } catch (error) {

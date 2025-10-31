@@ -7,7 +7,7 @@ formatting it for LLM consumption, and managing token budgets.
 
 from dataclasses import dataclass
 from typing import Any, Optional, TypeAlias, cast
-
+from app.services.obsidian_vault import ObsidianClient
 from app.db.supabase_client import supabase
 
 # Type aliases for clarity (using modern lowercase dict)
@@ -87,6 +87,10 @@ async def create_agent_context(
         - Total context: ~4,400 tokens
         - Available for response: ~3,800 tokens
     """
+    # Fetch Obsidian profile
+    obsidian = ObsidianClient()
+    profile = await obsidian.get_profile()
+
     # ========= Fetch Goals =========
     try:
         goals_response: Any = (
@@ -240,13 +244,13 @@ async def create_agent_context(
         current_tasks=tasks_data,
         goals=goals_data,
         milestones=milestones_data,
-        user_preferences=None,
         recent_messages=None,
         history_summary=None,
         today_context=today_context,
         weekly_progress=weekly_progress,
         urgent_deadlines=urgent_deadlines_data,
-        upcoming_deadlines=upcoming_deadlines_data
+        upcoming_deadlines=upcoming_deadlines_data,
+        user_preferences=profile
     )
 
 def agent_context_to_dict(context: AgentContext) -> dict[str, Any]:
@@ -283,6 +287,7 @@ def agent_context_to_dict(context: AgentContext) -> dict[str, Any]:
         "weekly_progress": context.weekly_progress,
         "urgent_deadlines": urgent,
         "upcoming_deadlines": upcoming,
+        "user_profile": context.user_preferences,
         "stats": {
             "total_tasks": len(tasks),
             "pending_tasks": sum(1 for task in tasks if task.get("status") == "pending"),
