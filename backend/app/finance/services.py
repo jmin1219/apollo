@@ -138,7 +138,7 @@ class FinanceService:
         query = (
             supabase.schema("finance")
             .table("transactions")
-            .select("*, accounts(name), categories(name, color)")
+            .select("*, accounts(name), categories(name, color, icon)")
             .eq("user_id", str(user_id))
         )
         
@@ -177,7 +177,7 @@ class FinanceService:
         response = (
             supabase.schema("finance")
             .table("transactions")
-            .select("*, accounts(name), categories(name, color)")
+            .select("*, accounts(name), categories(name, color, icon)")
             .eq("id", str(transaction_id))
             .eq("user_id", str(user_id))
             .execute()

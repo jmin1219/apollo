@@ -145,7 +145,7 @@ async def create_category(
 # TRANSACTION ENDPOINTS
 # ============================================================================
 
-@router.get("/transactions", response_model=List[Transaction])
+@router.get("/transactions")
 async def list_transactions(
     account_id: Optional[UUID] = None,
     category_id: Optional[UUID] = None,
@@ -187,7 +187,7 @@ async def list_transactions(
     return transactions
 
 
-@router.get("/transactions/{transaction_id}", response_model=Transaction)
+@router.get("/transactions/{transaction_id}")
 async def get_transaction(
     transaction_id: UUID,
     current_user: User = Depends(get_current_user)
