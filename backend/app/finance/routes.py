@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 
 from app.auth.dependencies import get_current_user
 from app.finance.models import (
@@ -20,6 +20,7 @@ from app.finance.models import (
     TransactionFilters
 )
 from app.finance.services import FinanceService
+from app.finance.ocr_service import OCRService, OCRResult
 from app.models.user import User
 
 # Create router
@@ -395,3 +396,73 @@ async def finance_health_check():
         "module": "finance",
         "version": "1.0.0"
     }
+
+
+# ============================================================================
+# OCR ENDPOINTS
+# ============================================================================
+
+@router.post("/ocr/analyze", response_model=OCRResult)
+async def analyze_bank_statement(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload and analyze bank statement image/PDF to extract transactions.
+    
+    Accepts: PNG, JPG, JPEG, PDF
+    Returns: Proposed transactions with category suggestions
+    """
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "application/pdf"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+        )
+    
+    # Read file
+    file_bytes = await file.read()
+    
+    # Analyze with OCR
+    result = await OCRService.analyze_image(file_bytes, file.content_type)
+    
+    # Get category map for auto-assignment
+    categories = FinanceService.get_categories(current_user.id)
+    category_map = {cat["name"].lower(): cat["id"] for cat in categories}
+    
+    # Assign categories to each transaction
+    for txn in result.transactions:
+        suggested_category_id = OCRService.infer_category(
+            txn.merchant,
+            txn.amount,
+            category_map
+        )
+        # Add category_id to transaction (will be in response)
+        txn.category_id = suggested_category_id
+    
+    return result
+
+
+@router.post("/transactions/batch", response_model=List[Transaction])
+async def create_transactions_batch(
+    transactions: List[TransactionCreate],
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create multiple transactions at once (batch import).
+    
+    Used after OCR analysis to import confirmed transactions.
+    """
+    created_transactions = []
+    
+    for txn_data in transactions:
+        try:
+            new_txn = FinanceService.create_transaction(current_user.id, txn_data)
+            created_transactions.append(new_txn)
+        except Exception as e:
+            # Log error but continue with other transactions
+            print(f"Failed to create transaction: {e}")
+            continue
+    
+    return created_transactions
