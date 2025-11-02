@@ -476,3 +476,176 @@ class FinanceService:
             top_category=top_category.category_name if top_category else None,
             top_category_amount=top_category.total_amount if top_category else None
         )
+
+    @staticmethod
+    def calculate_average_burn_rate(user_id: UUID, months: int = 3):
+        """Calculate average burn rate over last N months"""
+        from app.finance.models import AverageBurnRate
+        
+        today = date.today()
+        year = today.year
+        month = today.month
+        
+        burn_rates = []
+        discretionary_rates = []
+        start_date = None
+        end_date = None
+        
+        # Fixed cost categories
+        FIXED_CATEGORIES = ['rent', 'utilities', 'insurance']
+        
+        for i in range(months):
+            m = month - i
+            y = year
+            if m <= 0:
+                m += 12
+                y -= 1
+            
+            try:
+                # Get monthly burn data
+                burn_data = FinanceService.calculate_monthly_burn(user_id, y, m)
+                burn_rates.append(burn_data.burn_rate)
+                
+                # Get category breakdown for this month
+                _, last_day = monthrange(y, m)
+                month_start = date(y, m, 1)
+                month_end = date(y, m, last_day)
+                
+                breakdown = FinanceService.calculate_category_breakdown(user_id, month_start, month_end)
+                
+                # Calculate discretionary spending (exclude fixed costs)
+                discretionary_total = sum(
+                    cat.total_amount for cat in breakdown
+                    if cat.category_name.lower() not in FIXED_CATEGORIES
+                )
+                
+                discretionary_daily = discretionary_total / Decimal(str(last_day))
+                discretionary_rates.append(discretionary_daily)
+                
+                if start_date is None:
+                    end_date = date(y, m, last_day)
+                if i == months - 1:
+                    start_date = date(y, m, 1)
+            except:
+                pass
+        
+        if not burn_rates:
+            return AverageBurnRate(
+                daily_burn=Decimal("0"),
+                monthly_burn=Decimal("0"),
+                daily_discretionary=Decimal("0"),
+                monthly_discretionary=Decimal("0"),
+                months_analyzed=0,
+                start_date=today,
+                end_date=today
+            )
+        
+        avg_daily_burn = sum(burn_rates) / Decimal(str(len(burn_rates)))
+        avg_monthly_burn = avg_daily_burn * Decimal("30")
+        
+        avg_daily_discretionary = sum(discretionary_rates) / Decimal(str(len(discretionary_rates))) if discretionary_rates else Decimal("0")
+        avg_monthly_discretionary = avg_daily_discretionary * Decimal("30")
+        
+        return AverageBurnRate(
+            daily_burn=avg_daily_burn,
+            monthly_burn=avg_monthly_burn,
+            daily_discretionary=avg_daily_discretionary,
+            monthly_discretionary=avg_monthly_discretionary,
+            months_analyzed=len(burn_rates),
+            start_date=start_date or today,
+            end_date=end_date or today
+        )
+
+    @staticmethod
+    def get_top_discretionary_category(user_id: UUID, start_date: Optional[date] = None,
+                                       end_date: Optional[date] = None):
+        """Get top discretionary spending category (excludes fixed costs)"""
+        from app.finance.models import TopDiscretionaryCategory
+        
+        # Fixed cost categories to exclude
+        FIXED_CATEGORIES = ['rent', 'utilities', 'insurance']
+        
+        # Get all category breakdown
+        breakdown = FinanceService.calculate_category_breakdown(user_id, start_date, end_date)
+        
+        # Filter out fixed costs
+        discretionary = [
+            cat for cat in breakdown 
+            if cat.category_name.lower() not in FIXED_CATEGORIES
+        ]
+        
+        if not discretionary:
+            return TopDiscretionaryCategory(
+                category_id=None,
+                category_name="None",
+                category_color="#6B7280",
+                total_amount=Decimal("0"),
+                transaction_count=0,
+                percentage_of_discretionary=0.0
+            )
+        
+        # Top discretionary category
+        top = discretionary[0]
+        
+        # Calculate percentage of total discretionary spending
+        total_discretionary = sum(cat.total_amount for cat in discretionary)
+        percentage = (float(top.total_amount) / float(total_discretionary) * 100) if total_discretionary > 0 else 0
+        
+        return TopDiscretionaryCategory(
+            category_id=top.category_id,
+            category_name=top.category_name,
+            category_color=top.category_color,
+            total_amount=top.total_amount,
+            transaction_count=top.transaction_count,
+            percentage_of_discretionary=round(percentage, 2)
+        )
+
+    @staticmethod
+    def get_net_worth_history(user_id: UUID, months: int = 12):
+        """Get monthly net worth snapshots for last N months"""
+        from app.finance.models import NetWorthSnapshot
+        
+        # Get current balance
+        accounts = FinanceService.get_accounts(user_id, include_inactive=False)
+        current_balance = sum(Decimal(str(acc.get("balance", 0))) for acc in accounts)
+        
+        # Get all transactions
+        response = supabase.schema("finance").table("transactions").select("date, amount_cad").eq("user_id", str(user_id)).order("date").execute()
+        transactions = response.data
+        
+        if not transactions:
+            return []
+        
+        # Calculate net worth at end of each month by working backwards from current
+        today = date.today()
+        snapshots = []
+        
+        # Start from current month and work backwards
+        for i in range(months):
+            m = today.month - i
+            y = today.year
+            if m <= 0:
+                m += 12
+                y -= 1
+            
+            # Get last day of this month
+            _, last_day = monthrange(y, m)
+            month_end = date(y, m, last_day)
+            
+            # Calculate balance at end of this month
+            # = current_balance - sum(all transactions after this month)
+            future_transactions = [
+                Decimal(str(t["amount_cad"])) for t in transactions
+                if datetime.strptime(t["date"], "%Y-%m-%d").date() > month_end
+            ]
+            
+            balance_at_month_end = current_balance - sum(future_transactions)
+            
+            snapshots.append(NetWorthSnapshot(
+                month=f"{y}-{m:02d}",
+                net_worth=balance_at_month_end
+            ))
+        
+        # Reverse to chronological order (oldest first)
+        snapshots.reverse()
+        return snapshots

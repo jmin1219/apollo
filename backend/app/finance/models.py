@@ -179,6 +179,33 @@ class FinancialSummary(BaseModel):
     top_category_amount: Optional[Decimal] = None
 
 
+class AverageBurnRate(BaseModel):
+    """Average burn rate over last N months"""
+    daily_burn: Decimal
+    monthly_burn: Decimal
+    daily_discretionary: Decimal
+    monthly_discretionary: Decimal
+    months_analyzed: int
+    start_date: date
+    end_date: date
+
+
+class TopDiscretionaryCategory(BaseModel):
+    """Top discretionary spending category (excludes fixed costs)"""
+    category_id: Optional[UUID]
+    category_name: str
+    category_color: str
+    total_amount: Decimal
+    transaction_count: int
+    percentage_of_discretionary: float
+
+
+class NetWorthSnapshot(BaseModel):
+    """Monthly net worth snapshot"""
+    month: str  # YYYY-MM
+    net_worth: Decimal
+
+
 # ============================================================================
 # EXCHANGE RATE MODELS
 # ============================================================================

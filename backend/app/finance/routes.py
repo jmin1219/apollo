@@ -330,6 +330,59 @@ async def get_runway_calculation(
     return runway
 
 
+@router.get("/analytics/average-burn")
+async def get_average_burn_rate(
+    months: int = Query(default=3, ge=1, le=12),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calculate average burn rate over last N months.
+    
+    - **months**: Number of months to average (default: 3)
+    
+    Returns average daily and monthly spending rate.
+    """
+    from app.finance.models import AverageBurnRate
+    burn_rate = FinanceService.calculate_average_burn_rate(current_user.id, months)
+    return burn_rate
+
+
+@router.get("/analytics/top-discretionary")
+async def get_top_discretionary_category(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get top discretionary spending category (excludes fixed costs like rent, utilities).
+    
+    - **start_date**: Filter from date (optional)
+    - **end_date**: Filter to date (optional)
+    
+    Returns top category excluding fixed expenses.
+    """
+    from app.finance.models import TopDiscretionaryCategory
+    top_cat = FinanceService.get_top_discretionary_category(current_user.id, start_date, end_date)
+    return top_cat
+
+
+@router.get("/analytics/net-worth-history")
+async def get_net_worth_history(
+    months: int = Query(default=12, ge=1, le=24),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get monthly net worth history for last N months.
+    
+    - **months**: Number of months (default: 12)
+    
+    Returns monthly net worth snapshots.
+    """
+    from app.finance.models import NetWorthSnapshot
+    history = FinanceService.get_net_worth_history(current_user.id, months)
+    return history
+
+
 # ============================================================================
 # HEALTH CHECK
 # ============================================================================
