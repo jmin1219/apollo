@@ -185,8 +185,21 @@ class FinanceService:
         return response.data[0] if response.data else None
 
     @staticmethod
+    def _update_account_balance(account_id: UUID, user_id: UUID, amount_change: Decimal) -> None:
+        """Helper method to update account balance"""
+        account = FinanceService.get_account(account_id, user_id)
+        if account:
+            current_balance = Decimal(str(account.get("balance", 0)))
+            new_balance = current_balance + amount_change
+            FinanceService.update_account(
+                account_id,
+                user_id,
+                AccountUpdate(balance=new_balance)
+            )
+
+    @staticmethod
     def create_transaction(user_id: UUID, transaction_data: TransactionCreate) -> Dict[str, Any]:
-        """Create a new transaction"""
+        """Create a new transaction and update account balance"""
         data = transaction_data.model_dump()
         data["user_id"] = str(user_id)
         data["amount"] = float(data["amount"])
@@ -213,15 +226,26 @@ class FinanceService:
             data["amount_cad"] = float(data["amount_cad"])
         
         response = supabase.schema("finance").table("transactions").insert(data).execute()
-        return response.data[0]
+        created_transaction = response.data[0]
+        
+        # Update account balance
+        account_id = UUID(created_transaction["account_id"])
+        amount_cad = Decimal(str(created_transaction["amount_cad"]))
+        FinanceService._update_account_balance(account_id, user_id, amount_cad)
+        
+        return created_transaction
 
     @staticmethod
     def update_transaction(transaction_id: UUID, user_id: UUID, transaction_data: TransactionUpdate) -> Optional[Dict[str, Any]]:
-        """Update a transaction"""
+        """Update a transaction and adjust account balances"""
         # Verify ownership
         existing = FinanceService.get_transaction(transaction_id, user_id)
         if not existing:
             return None
+        
+        # Track original values for balance adjustments
+        old_account_id = UUID(existing["account_id"])
+        old_amount_cad = Decimal(str(existing["amount_cad"]))
         
         # Prepare update data (exclude unset fields)
         update_data = transaction_data.model_dump(exclude_unset=True)
@@ -276,18 +300,39 @@ class FinanceService:
             .execute()
         )
         
+        if not response.data:
+            return None
+        
+        # Get updated transaction to know new values
+        updated = response.data[0]
+        new_account_id = UUID(updated["account_id"])
+        new_amount_cad = Decimal(str(updated["amount_cad"]))
+        
+        # Update account balances
+        if old_account_id == new_account_id:
+            # Same account - just adjust by the difference
+            balance_change = new_amount_cad - old_amount_cad
+            if balance_change != 0:
+                FinanceService._update_account_balance(old_account_id, user_id, balance_change)
+        else:
+            # Different account - reverse old and apply new
+            FinanceService._update_account_balance(old_account_id, user_id, -old_amount_cad)
+            FinanceService._update_account_balance(new_account_id, user_id, new_amount_cad)
+        
         # Return fresh data with joins
-        if response.data:
-            return FinanceService.get_transaction(transaction_id, user_id)
-        return None
+        return FinanceService.get_transaction(transaction_id, user_id)
 
     @staticmethod
     def delete_transaction(transaction_id: UUID, user_id: UUID) -> bool:
-        """Delete a transaction"""
+        """Delete a transaction and reverse its account balance impact"""
         # Verify ownership first
         existing = FinanceService.get_transaction(transaction_id, user_id)
         if not existing:
             return False
+        
+        # Store values before deletion
+        account_id = UUID(existing["account_id"])
+        amount_cad = Decimal(str(existing["amount_cad"]))
         
         response = (
             supabase.schema("finance")
@@ -297,7 +342,13 @@ class FinanceService:
             .eq("user_id", str(user_id))
             .execute()
         )
-        return len(response.data) > 0
+        
+        if len(response.data) > 0:
+            # Reverse the transaction's impact on account balance
+            FinanceService._update_account_balance(account_id, user_id, -amount_cad)
+            return True
+        
+        return False
 
     # ========================================================================
     # ANALYTICS OPERATIONS
