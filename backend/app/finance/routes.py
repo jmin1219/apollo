@@ -453,16 +453,47 @@ async def create_transactions_batch(
     Create multiple transactions at once (batch import).
     
     Used after OCR analysis to import confirmed transactions.
+    Updates account balances automatically.
     """
     created_transactions = []
+    accounts_to_update = {}  # Track balance changes per account
     
     for txn_data in transactions:
         try:
             new_txn = FinanceService.create_transaction(current_user.id, txn_data)
             created_transactions.append(new_txn)
+            
+            # Track account balance change
+            account_id = str(txn_data.account_id)
+            if account_id not in accounts_to_update:
+                accounts_to_update[account_id] = Decimal("0")
+            
+            # Add amount_cad to account balance change
+            amount = Decimal(str(new_txn.get("amount_cad", 0)))
+            accounts_to_update[account_id] += amount
+            
         except Exception as e:
-            # Log error but continue with other transactions
             print(f"Failed to create transaction: {e}")
             continue
+    
+    # Update account balances
+    for account_id, balance_change in accounts_to_update.items():
+        try:
+            # Get current balance
+            account = FinanceService.get_account(UUID(account_id), current_user.id)
+            if account:
+                current_balance = Decimal(str(account.get("balance", 0)))
+                new_balance = current_balance + balance_change
+                
+                # Update account
+                from app.finance.models import AccountUpdate
+                FinanceService.update_account(
+                    UUID(account_id),
+                    current_user.id,
+                    AccountUpdate(balance=new_balance)
+                )
+                print(f"Updated account {account_id} balance: {current_balance} → {new_balance}")
+        except Exception as e:
+            print(f"Failed to update account balance: {e}")
     
     return created_transactions
