@@ -88,8 +88,10 @@ async def create_agent_context(
         - Available for response: ~3,800 tokens
     """
     # Fetch Obsidian profile
-    obsidian = ObsidianClient()
-    profile = await obsidian.get_profile()
+    # TODO: Implement user-specific profiles (currently disabled for security)
+    # obsidian = ObsidianClient()
+    # profile = await obsidian.get_profile()
+    profile = None
 
     # ========= Fetch Goals =========
     try:

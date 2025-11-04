@@ -67,14 +67,11 @@ export default function ChatPage() {
           setConversationId(lastConversation.id);
 
           // Fetch messages for this conversation
-          const messagesRes = await fetch(
-            `${API_BASE}/conversations/${lastConversation.id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+          const messagesRes = await fetch(`${API_BASE}/conversations/${lastConversation.id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
 
           if (messagesRes.ok) {
             const data = await messagesRes.json();
@@ -142,6 +139,7 @@ export default function ChatPage() {
       // Prepare conversation history (last 10 messages only to avoid token limits)
       const conversationHistory = messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m) => m.content.trim().length > 0)
         .map((m) => ({ role: m.role, content: m.content }))
         .slice(-10); // Only send last 10 messages
 
@@ -151,10 +149,10 @@ export default function ChatPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('JWT_AUTH_TOKEN')}`,
         },
-        body: JSON.stringify({ 
-          message: userInput, 
+        body: JSON.stringify({
+          message: userInput,
           conversation_id: currentConversationId, // Add conversation_id!
-          conversation_history: conversationHistory 
+          conversation_history: conversationHistory,
         }),
       });
 
@@ -171,7 +169,7 @@ export default function ChatPage() {
 
       let isDone = false;
       let timeout: NodeJS.Timeout | null = null;
-      
+
       // Set a 30 second timeout in case stream never completes
       timeout = setTimeout(() => {
         if (!isDone) {
@@ -179,7 +177,7 @@ export default function ChatPage() {
           setIsStreaming(false);
         }
       }, 30000);
-      
+
       while (true) {
         if (isDone) {
           if (timeout) clearTimeout(timeout);
@@ -229,8 +227,6 @@ export default function ChatPage() {
         }
       }
 
-
-
       setIsStreaming(false);
     } catch (error) {
       console.error('Chat error:', error);
@@ -239,7 +235,8 @@ export default function ChatPage() {
       // Show error message
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Sorry, something went wrong. The action may have completed - try refreshing the page.',
+        content:
+          'Sorry, something went wrong. The action may have completed - try refreshing the page.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     }
