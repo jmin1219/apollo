@@ -17,7 +17,8 @@ from app.auth.password import hash_password, verify_password
 from app.db.supabase_client import supabase
 from app.models.task import Task, TaskUpdate
 from app.models.user import User, UserCreate, UserPublic
-from app.routes import chat, conversations, goals, milestones, planning
+from app.routes import chat, conversations, goals, milestones, planning, time_entries
+
 from app.finance import routes as finance_routes
 
 # FastAPI is needed even though also using Next.js for frontend. While Next.js API
@@ -49,7 +50,9 @@ app.include_router(conversations.router)
 app.include_router(goals.router)
 app.include_router(milestones.router)
 app.include_router(planning.router)
+app.include_router(time_entries.router, prefix="/api")
 app.include_router(finance_routes.router)  # Finance module
+
 
 # 3. ROUTES - Define API endpoints
 # Health check endpoint
