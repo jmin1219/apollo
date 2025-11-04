@@ -35,6 +35,7 @@ type HierarchyMilestone = TimelineItem & {
 };
 
 export default function PlanningPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const router = useRouter();
   const [horizon, setHorizon] = useState<Horizon>("week");
   const [items, setItems] = useState<TimelineItem[]>([]);
@@ -58,7 +59,7 @@ export default function PlanningPage() {
       }
 
       const response = await fetch(
-        `http://localhost:8000/planning/timeline?horizon=${horizon}`,
+        `${API_BASE}/planning/timeline?horizon=${horizon}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

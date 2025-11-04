@@ -10,6 +10,7 @@ type PlanningModalProps = {
 };
 
 export function PlanningModal({ isOpen, onClose, onGoalCreated }: PlanningModalProps) {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const [goalTitle, setGoalTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [description, setDescription] = useState("");
@@ -60,7 +61,7 @@ export function PlanningModal({ isOpen, onClose, onGoalCreated }: PlanningModalP
       if (!token) throw new Error("Not authenticated");
 
       // Create the goal
-      const goalResponse = await fetch("http://localhost:8000/goals", {
+      const goalResponse = await fetch(`${API_BASE}/goals`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
